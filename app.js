@@ -836,9 +836,22 @@
     return raw * 0.24;
   }
 
+  /**
+   * 3D 구체 표면의 해당 좌표(x, y, z)에서 구의 곡면 기울기에 맞춰
+   * 원(점·파동)이 비스듬한 타원 형태로 구 표면에 완전히 밀착되도록 SVG 변환 문자열을 생성합니다.
+   */
+  function getSurfaceTransform(x, y, z) {
+    const dx = x - GLOBE_CX;
+    const dy = y - GLOBE_CY;
+    const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+    const foreshorten = Math.max(0.16, Math.min(1.0, z));
+    return `translate(${x.toFixed(1)}, ${y.toFixed(1)}) rotate(${angleDeg.toFixed(1)}) scale(${foreshorten.toFixed(3)}, 1)`;
+  }
+
   function renderQuakesOnMap() {
     const quakesLayer = document.getElementById("map-layer-quakes");
     const beaconLayer = document.getElementById("map-layer-beacon");
+    const calloutLayer = document.getElementById("map-layer-callout");
     if (!quakesLayer || !beaconLayer) return;
 
     const activeState = getActiveAdapterState();
@@ -849,44 +862,47 @@
     if (quakes.length === 0) {
       quakesLayer.innerHTML = "";
       beaconLayer.innerHTML = "";
+      if (calloutLayer) calloutLayer.innerHTML = "";
       renderSelectedQuakeCard();
       return;
     }
 
-    // 1) 3D 구체 앞면(visible)에 위치한 이전 지진 점 렌더링
+    // 1) 3D 구체 앞면(visible)에 위치한 이전 지진 점 렌더링 (구면 기울기 타원 변형 및 원근 감쇠 적용)
     let dotsHtml = "";
     for (let i = quakes.length - 1; i >= 1; i--) {
       const q = quakes[i];
       const proj = project3D(q.lon, q.lat);
       if (!proj.visible) continue;
 
-      const { x, y } = proj;
+      const { x, y, z } = proj;
       const mag = Number(q.mag) || 0;
       const isSelected = runtime.selectedQuakeIndex === i;
       const radius = computeQuakeDotRadius(mag) * scaleFactor;
       const hitRadius = Math.max(radius, 3.2);
+      const surfaceTransform = getSurfaceTransform(x, y, z);
+      const depthOpacity = isSelected ? 1.0 : Number((0.35 + 0.65 * z).toFixed(2));
 
-      let fill = isSelected ? "#ffffff" : "rgba(56, 189, 248, 0.72)";
-      let stroke = isSelected ? "#38bdf8" : "rgba(56, 189, 248, 0.95)";
+      let fill = isSelected ? "#ffffff" : "rgba(56, 189, 248, 0.82)";
+      let stroke = isSelected ? "#38bdf8" : "rgba(56, 189, 248, 0.98)";
       if (mag >= 4.5) {
-        fill = isSelected ? "#ffffff" : "rgba(244, 63, 94, 0.85)";
+        fill = isSelected ? "#ffffff" : "rgba(244, 63, 94, 0.9)";
         stroke = isSelected ? "#f43f5e" : "#fda4af";
       } else if (mag >= 2.5) {
-        fill = isSelected ? "#ffffff" : "rgba(251, 191, 36, 0.8)";
+        fill = isSelected ? "#ffffff" : "rgba(251, 191, 36, 0.85)";
         stroke = isSelected ? "#fbbf24" : "#fde68a";
       }
 
       if (isStale && !isSelected) {
-        fill = "rgba(245, 158, 11, 0.55)";
-        stroke = "rgba(251, 191, 36, 0.85)";
+        fill = "rgba(245, 158, 11, 0.65)";
+        stroke = "rgba(251, 191, 36, 0.9)";
       }
 
       dotsHtml += `
-        <g class="quake-dot-group" data-quake-index="${i}" style="cursor:pointer;">
-          <circle cx="${x}" cy="${y}" r="${hitRadius.toFixed(2)}" fill="transparent" />
+        <g class="quake-dot-group" data-quake-index="${i}" transform="${surfaceTransform}" opacity="${depthOpacity}" style="cursor:pointer;">
+          <circle cx="0" cy="0" r="${hitRadius.toFixed(2)}" fill="transparent" />
           <circle
-            cx="${x}"
-            cy="${y}"
+            cx="0"
+            cy="0"
             r="${radius.toFixed(2)}"
             fill="${fill}"
             stroke="${stroke}"
@@ -909,11 +925,12 @@
       });
     });
 
-    // 2) 최신 지진(quakes[0]) 위치에 규모 비례 과장 파동 비콘 표시
+    // 2) 최신 지진(quakes[0]) 위치에 구면 곡률을 따라 눕혀진 규모 비례 과장 파동 비콘 표시
     const newestQuake = quakes[0];
     const newestProj = project3D(newestQuake.lon, newestQuake.lat);
     if (!newestProj.visible) {
       beaconLayer.innerHTML = "";
+      if (calloutLayer) calloutLayer.innerHTML = "";
       renderSelectedQuakeCard();
       return;
     }
@@ -923,13 +940,14 @@
     const pulseMaxR = Math.round((20 + Math.pow(newestMag, 1.55) * 15) * scaleFactor);
     const glowR = Math.round(pulseMaxR * 0.65);
 
-    const { x: bx, y: by } = newestProj;
+    const { x: bx, y: by, z: bz } = newestProj;
+    const beaconSurfaceTransform = getSurfaceTransform(bx, by, bz);
     const labelOffsetX = bx > 620 ? -186 : 12;
     const labelOffsetY = by < 70 ? 18 : -12;
     const statusPrefix = isStale ? "[STALE 유지] " : "[NEW 감지] ";
 
     beaconLayer.innerHTML = `
-      <g transform="translate(${bx}, ${by})" style="--pulse-max-r: ${pulseMaxR}px;">
+      <g transform="${beaconSurfaceTransform}" style="--pulse-max-r: ${pulseMaxR}px;">
         <circle cx="0" cy="0" r="${glowR}" fill="url(#beaconGlow)" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-1" pointer-events="none" />
@@ -939,17 +957,21 @@
           <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
         </circle>
       </g>
-
-      <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)})" pointer-events="none">
-        <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(6, 11, 22, 0.88)" stroke="${isStale ? '#f59e0b' : '#22d3ee'}" stroke-width="1" />
-        <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#38bdf8'}" font-size="9" font-weight="bold" font-family="sans-serif">
-          ${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} 진앙지
-        </text>
-        <text x="7" y="10" fill="#cbd5e1" font-size="8" font-family="monospace">
-          ${Number(newestQuake.lat).toFixed(2)}°N, ${Number(newestQuake.lon).toFixed(2)}°E
-        </text>
-      </g>
     `;
+
+    if (calloutLayer) {
+      calloutLayer.innerHTML = `
+        <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)})" pointer-events="none">
+          <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(6, 11, 22, 0.88)" stroke="${isStale ? '#f59e0b' : '#22d3ee'}" stroke-width="1" />
+          <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#38bdf8'}" font-size="9" font-weight="bold" font-family="sans-serif">
+            ${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} 진앙지
+          </text>
+          <text x="7" y="10" fill="#cbd5e1" font-size="8" font-family="monospace">
+            ${Number(newestQuake.lat).toFixed(2)}°N, ${Number(newestQuake.lon).toFixed(2)}°E
+          </text>
+        </g>
+      `;
+    }
 
     const latestHit = document.getElementById("latest-beacon-hit");
     if (latestHit) {
@@ -981,18 +1003,22 @@
 
     const newestMag = Math.max(0.5, Number(newest.mag) || 1.0);
     const maxBurstR = Math.round(28 + Math.pow(newestMag, 1.6) * 18);
-    const { x, y, visible } = project3D(newest.lon, newest.lat);
+    const { x, y, z, visible } = project3D(newest.lon, newest.lat);
     if (!visible) return;
 
+    const flashGroup = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    flashGroup.setAttribute("transform", getSurfaceTransform(x, y, z));
+    flashGroup.setAttribute("pointer-events", "none");
+
     const flashCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-    flashCircle.setAttribute("cx", String(x));
-    flashCircle.setAttribute("cy", String(y));
+    flashCircle.setAttribute("cx", "0");
+    flashCircle.setAttribute("cy", "0");
     flashCircle.setAttribute("r", "2");
     flashCircle.setAttribute("fill", "rgba(34, 211, 238, 0.45)");
     flashCircle.setAttribute("stroke", "#ffffff");
     flashCircle.setAttribute("stroke-width", "2.8");
-    flashCircle.setAttribute("pointer-events", "none");
-    beaconLayer.appendChild(flashCircle);
+    flashGroup.appendChild(flashCircle);
+    beaconLayer.appendChild(flashGroup);
 
     let r = 2;
     let opacity = 1;
@@ -1002,7 +1028,7 @@
       opacity -= 0.065;
       if (opacity <= 0 || r >= maxBurstR) {
         clearInterval(timer);
-        flashCircle.remove();
+        flashGroup.remove();
       } else {
         flashCircle.setAttribute("r", String(r.toFixed(1)));
         flashCircle.setAttribute("stroke-opacity", String(opacity));
