@@ -1011,7 +1011,7 @@
       };
 
       const prevTopQuakeId = runtime.quakes.length > 0 ? runtime.quakes[0].id : null;
-      runtime.quakes = rawData.features.slice(0, 180).map((f) => {
+      runtime.quakes = rawData.features.map((f) => {
         const coords = (f.geometry && f.geometry.coordinates) || [0, 0, 0];
         const props = f.properties || {};
         return {
@@ -1173,7 +1173,15 @@
     }
 
     if (reading) {
-      signalLabel.textContent = reading.signal_id === LIVE_SIGNAL_ID ? "24h 지진" : "Fixture 값";
+      if (reading.record_date && /^\d{4}-\d{2}-\d{2}$/.test(reading.record_date)) {
+        const [y, m, d] = reading.record_date.split("-");
+        signalLabel.textContent =
+          reading.signal_id === LIVE_SIGNAL_ID
+            ? `${y}년 ${Number(m)}월 ${Number(d)}일 지진`
+            : `${y}년 ${Number(m)}월 ${Number(d)}일 (Fixture)`;
+      } else {
+        signalLabel.textContent = "오늘 지진";
+      }
       document.getElementById("display-value").textContent = String(reading.normalized_value);
       document.getElementById("display-unit").textContent = reading.unit;
       document.getElementById("display-source-name").textContent = reading.source_name;
