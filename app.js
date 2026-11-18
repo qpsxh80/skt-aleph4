@@ -955,14 +955,27 @@
         <g class="quake-dot-group" data-quake-index="${i}" transform="translate(${x.toFixed(1)}, ${y.toFixed(1)})" opacity="${depthOpacity}" style="cursor:pointer;">
           <circle cx="0" cy="0" r="${hitRadius.toFixed(2)}" fill="transparent" />
           <g transform="rotate(${angleDeg.toFixed(1)}) scale(${foreshorten.toFixed(3)}, 1)">
+            ${
+              isSelected
+                ? `<circle
+                    cx="0"
+                    cy="0"
+                    r="${impactPx.toFixed(2)}"
+                    fill="${redStyle.zoneGradUrl}"
+                    fill-opacity="${redStyle.zoneOpacity}"
+                    stroke="none"
+                    class="quake-impact-zone selected"
+                  />`
+                : ""
+            }
             <circle
               cx="0"
               cy="0"
-              r="${impactPx.toFixed(2)}"
-              fill="${redStyle.zoneGradUrl}"
-              fill-opacity="${redStyle.zoneOpacity}"
-              stroke="none"
-              class="quake-impact-zone ${isSelected ? "selected" : ""}"
+              r="${radius.toFixed(2)}"
+              fill="${redStyle.dotFill}"
+              stroke="${redStyle.dotStroke}"
+              stroke-width="${(isSelected ? 0.65 : 0.25).toFixed(2)}"
+              class="quake-dot ${isSelected ? "selected" : ""}"
             />
           </g>
           <title>[클릭하여 정보 보기] M${mag.toFixed(1)} (영향 반경 약 ${impactKm}km) — ${q.place}</title>
@@ -981,7 +994,7 @@
       });
     });
 
-    // 2) 최신 지진(quakes[0]) 위치에 단일 101단계 그라데이션 + 규모 비례 파동 비콘 표시
+    // 2) 최신 지진(quakes[0]) 위치에 단색 코어 점 + 파동 비콘 표시 (클릭 시에만 그라데이션 영향권 표시)
     const newestQuake = quakes[0];
     const newestProj = project3D(newestQuake.lon, newestQuake.lat);
     if (!newestProj.visible) {
@@ -992,9 +1005,11 @@
     }
 
     const newestMag = Math.max(0.5, Number(newestQuake.mag) || 1.0);
+    const newestDotRadius = computeQuakeDotRadius(newestMag) * scaleFactor;
     const newestImpactPx = computeImpactRadiusPx(newestMag, scaleFactor);
     const newestImpactKm = computeImpactRadiusKm(newestMag);
-    const newestRedStyle = getPureRedStyle(newestMag, isStale, runtime.selectedQuakeIndex === 0);
+    const isNewestSelected = runtime.selectedQuakeIndex === 0;
+    const newestRedStyle = getPureRedStyle(newestMag, isStale, isNewestSelected);
     const pulseMaxR = Math.round((20 + Math.pow(newestMag, 1.55) * 15) * scaleFactor);
 
     const { x: bx, y: by, z: bz } = newestProj;
@@ -1005,19 +1020,26 @@
 
     beaconLayer.innerHTML = `
       <g transform="${beaconSurfaceTransform}" style="--pulse-max-r: ${pulseMaxR}px;">
-        <circle
-          cx="0"
-          cy="0"
-          r="${newestImpactPx.toFixed(2)}"
-          fill="${newestRedStyle.zoneGradUrl}"
-          fill-opacity="${newestRedStyle.zoneOpacity}"
-          stroke="none"
-          class="quake-impact-zone ${runtime.selectedQuakeIndex === 0 ? "selected" : ""}"
-          pointer-events="none"
-        />
+        ${
+          isNewestSelected
+            ? `<circle
+                cx="0"
+                cy="0"
+                r="${newestImpactPx.toFixed(2)}"
+                fill="${newestRedStyle.zoneGradUrl}"
+                fill-opacity="${newestRedStyle.zoneOpacity}"
+                stroke="none"
+                class="quake-impact-zone selected"
+                pointer-events="none"
+              />`
+            : ""
+        }
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-1" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-2" pointer-events="none" />
+        <circle cx="0" cy="0" r="${newestDotRadius.toFixed(2)}" class="latest-core-beacon" pointer-events="none">
+          <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} (영향 반경 약 ${newestImpactKm}km) — ${newestQuake.place}</title>
+        </circle>
       </g>
       <circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="10" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;">
         <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} (영향 반경 약 ${newestImpactKm}km) — ${newestQuake.place}</title>
@@ -1027,11 +1049,11 @@
     if (calloutLayer) {
       calloutLayer.innerHTML = `
         <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)})" pointer-events="none">
-          <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(255, 255, 255, 0.94)" stroke="${isStale ? '#d97706' : '#e11d48'}" stroke-width="1.1" />
-          <text x="7" y="-1" fill="${isStale ? '#b45309' : '#e11d48'}" font-size="9" font-weight="bold" font-family="sans-serif">
+          <rect x="0" y="-13" width="182" height="30" rx="5" fill="rgba(15, 23, 42, 0.92)" stroke="${isStale ? '#f59e0b' : '#fb7185'}" stroke-width="1.1" />
+          <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#fda4af'}" font-size="9" font-weight="bold" font-family="sans-serif">
             ${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} 진앙지
           </text>
-          <text x="7" y="10" fill="#334155" font-size="8" font-family="monospace">
+          <text x="7" y="10" fill="#e2e8f0" font-size="8" font-family="monospace">
             반경 ~${newestImpactKm}km (${Number(newestQuake.lat).toFixed(1)}°N, ${Number(newestQuake.lon).toFixed(1)}°E)
           </text>
         </g>
