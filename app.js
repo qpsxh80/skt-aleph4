@@ -745,6 +745,16 @@
     positionSelectedQuakeCard();
   }
 
+  /**
+   * 점 크기 계산: 기존 대비 전체적으로 약 20% 키우고(0.2 -> 0.24),
+   * 진도(규모, mag)에 따른 크기 차이를 더 뚜렷하게 부각합니다.
+   */
+  function computeQuakeDotRadius(mag) {
+    const safeMag = Math.max(0, Number(mag) || 0);
+    const raw = Math.max(1.8, Math.min(13.5, 1.2 + Math.pow(safeMag, 1.35) * 1.35));
+    return raw * 0.24;
+  }
+
   function renderQuakesOnMap() {
     const quakesLayer = document.getElementById("map-layer-quakes");
     const beaconLayer = document.getElementById("map-layer-beacon");
@@ -762,14 +772,14 @@
       return;
     }
 
-    // 1) 이전 지진 점 렌더링 (기존 공식 × 0.2 적용, 클릭 시 크기 변화 없음)
+    // 1) 이전 지진 점 렌더링 (20% 확대 + 규모별 편차 부각, 클릭 시 크기 변화 없음)
     let dotsHtml = "";
     for (let i = quakes.length - 1; i >= 1; i--) {
       const q = quakes[i];
       const { x, y } = lonLatToXY(q.lon, q.lat);
       const mag = Number(q.mag) || 0;
       const isSelected = runtime.selectedQuakeIndex === i;
-      const baseRadius = Math.max(2.2, Math.min(7.5, 1.9 + mag * 1.1)) * 0.2;
+      const baseRadius = computeQuakeDotRadius(mag);
       const radius = baseRadius * invScale;
       const hitRadius = Math.max(radius, 3.2 * invScale);
 
@@ -819,7 +829,7 @@
     // 2) 오직 최신 지진(quakes[0]) 위치에만 규모에 비례해 과장된 크기의 파동 비콘 표시
     const newestQuake = quakes[0];
     const newestMag = Math.max(0.5, Number(newestQuake.mag) || 1.0);
-    const newestDotRadius = Math.max(2.2, Math.min(7.5, 1.9 + newestMag * 1.1)) * 0.2;
+    const newestDotRadius = computeQuakeDotRadius(newestMag);
     const pulseMaxR = Math.round(20 + Math.pow(newestMag, 1.55) * 15);
     const glowR = Math.round(pulseMaxR * 0.65);
 
