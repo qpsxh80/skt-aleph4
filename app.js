@@ -786,6 +786,57 @@
     card.style.top = `${Math.round(top)}px`;
   }
 
+  /**
+   * 진도(규모 M 0 ~ 10)에 따른 통상적인 감진/영향 반경(km)을 계산합니다.
+   */
+  function computeImpactRadiusKm(mag) {
+    const safeMag = Math.max(0, Math.min(10, Number(mag) || 0));
+    const km = 5 * Math.pow(10, 0.38 * safeMag);
+    return Math.max(5, Math.min(2500, Math.round(km)));
+  }
+
+  /**
+   * 영향 반경(km)을 3D 지구본(반지름 R, 실제 지구 반지름 6371km) 위 픽셀 반지름으로 변환합니다.
+   */
+  function computeImpactRadiusPx(mag, scaleFactor) {
+    const km = computeImpactRadiusKm(mag);
+    const R = getGlobeRadius();
+    const geoPx = (km / 6371) * R;
+    const minVisualPx = (1.6 + Math.max(0, Number(mag) || 0) * 1.15) * scaleFactor;
+    return Math.max(minVisualPx, geoPx);
+  }
+
+  /**
+   * 진도 0 ~ 10까지 순수 붉은색(Pure Red) 단일 톤을 유지하되,
+   * 10으로 갈수록 불투명도(Opacity)와 선명도가 100%에 도달하도록 스타일을 계산합니다.
+   */
+  function getPureRedStyle(mag, isStale, isSelected) {
+    const clampedMag = Math.max(0, Math.min(10, Number(mag) || 0));
+    const ratio = clampedMag / 10;
+    const intensity = Math.pow(ratio, 0.68);
+
+    const dotAlpha = Number((0.22 + 0.78 * intensity).toFixed(2));
+    const strokeAlpha = Number(Math.min(1.0, dotAlpha + 0.2).toFixed(2));
+    const zoneFillAlpha = Number((0.05 + 0.24 * intensity).toFixed(2));
+    const zoneStrokeAlpha = Number((0.16 + 0.58 * intensity).toFixed(2));
+
+    if (isStale && !isSelected) {
+      return {
+        dotFill: `rgba(245, 158, 11, ${dotAlpha})`,
+        dotStroke: `rgba(251, 191, 36, ${strokeAlpha})`,
+        zoneFill: `rgba(245, 158, 11, ${zoneFillAlpha})`,
+        zoneStroke: `rgba(251, 191, 36, ${zoneStrokeAlpha})`
+      };
+    }
+
+    return {
+      dotFill: isSelected ? "#ff182c" : `rgba(255, 24, 44, ${dotAlpha})`,
+      dotStroke: isSelected ? "#ffffff" : `rgba(255, 65, 82, ${strokeAlpha})`,
+      zoneFill: isSelected ? `rgba(255, 24, 44, ${Math.min(0.42, zoneFillAlpha + 0.14).toFixed(2)})` : `rgba(255, 24, 44, ${zoneFillAlpha})`,
+      zoneStroke: isSelected ? "rgba(255, 90, 105, 0.95)" : `rgba(255, 36, 56, ${zoneStrokeAlpha})`
+    };
+  }
+
   function renderSelectedQuakeCard() {
     const card = document.getElementById("selected-quake-card");
     if (!card) return;
@@ -799,28 +850,24 @@
 
     const q = quakes[idx];
     const mag = Number(q.mag) || 0;
+    const impactKm = computeImpactRadiusKm(mag);
+    const redStyle = getPureRedStyle(mag, false, false);
     const magBadge = document.getElementById("sq-mag-badge");
     const typeLabel = document.getElementById("sq-type-label");
+    const impactEl = document.getElementById("sq-impact");
 
     magBadge.textContent = `M ${mag.toFixed(1)}`;
-    if (mag >= 4.5) {
-      magBadge.style.background = "rgba(244, 63, 94, 0.25)";
-      magBadge.style.color = "#fda4af";
-      magBadge.style.borderColor = "rgba(244, 63, 94, 0.6)";
-    } else if (mag >= 2.5) {
-      magBadge.style.background = "rgba(251, 191, 36, 0.22)";
-      magBadge.style.color = "#fde68a";
-      magBadge.style.borderColor = "rgba(251, 191, 36, 0.55)";
-    } else {
-      magBadge.style.background = "rgba(56, 189, 248, 0.2)";
-      magBadge.style.color = "#38bdf8";
-      magBadge.style.borderColor = "rgba(56, 189, 248, 0.5)";
-    }
+    magBadge.style.background = redStyle.dotFill;
+    magBadge.style.color = "#ffffff";
+    magBadge.style.borderColor = redStyle.dotStroke;
 
     typeLabel.textContent = idx === 0 ? "최신 감지 지진" : `이전 지진 기록 (#${idx + 1})`;
     document.getElementById("sq-place").textContent = q.place;
     document.getElementById("sq-coords").textContent = `${Number(q.lat).toFixed(2)}°N, ${Number(q.lon).toFixed(2)}°E`;
     document.getElementById("sq-depth").textContent = `${Number(q.depth).toFixed(1)} km`;
+    if (impactEl) {
+      impactEl.textContent = `반경 약 ${impactKm.toLocaleString()} km`;
+    }
     document.getElementById("sq-time").textContent = formatKSTDisplay(new Date(q.time).toISOString());
 
     positionSelectedQuakeCard();
@@ -867,7 +914,7 @@
       return;
     }
 
-    // 1) 3D 구체 앞면(visible)에 위치한 이전 지진 점 렌더링 (구면 기울기 타원 변형 및 원근 감쇠 적용)
+    // 1) 3D 구체 앞면(visible)에 위치한 이전 지진 점 + 방식 B 상시 통상 영향 반경(붉은 반투명 원) 렌더링
     let dotsHtml = "";
     for (let i = quakes.length - 1; i >= 1; i--) {
       const q = quakes[i];
@@ -878,27 +925,15 @@
       const mag = Number(q.mag) || 0;
       const isSelected = runtime.selectedQuakeIndex === i;
       const radius = computeQuakeDotRadius(mag) * scaleFactor;
+      const impactPx = computeImpactRadiusPx(mag, scaleFactor);
+      const impactKm = computeImpactRadiusKm(mag);
       const hitRadius = Math.max(radius * 2, 9.0);
       const dx = x - GLOBE_CX;
       const dy = y - GLOBE_CY;
       const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
       const foreshorten = Math.max(0.16, Math.min(1.0, z));
-      const depthOpacity = isSelected ? 1.0 : Number((0.35 + 0.65 * z).toFixed(2));
-
-      let fill = isSelected ? "#ffffff" : "rgba(56, 189, 248, 0.82)";
-      let stroke = isSelected ? "#38bdf8" : "rgba(56, 189, 248, 0.98)";
-      if (mag >= 4.5) {
-        fill = isSelected ? "#ffffff" : "rgba(244, 63, 94, 0.9)";
-        stroke = isSelected ? "#f43f5e" : "#fda4af";
-      } else if (mag >= 2.5) {
-        fill = isSelected ? "#ffffff" : "rgba(251, 191, 36, 0.85)";
-        stroke = isSelected ? "#fbbf24" : "#fde68a";
-      }
-
-      if (isStale && !isSelected) {
-        fill = "rgba(245, 158, 11, 0.65)";
-        stroke = "rgba(251, 191, 36, 0.9)";
-      }
+      const depthOpacity = isSelected ? 1.0 : Number((0.4 + 0.6 * z).toFixed(2));
+      const redStyle = getPureRedStyle(mag, isStale, isSelected);
 
       dotsHtml += `
         <g class="quake-dot-group" data-quake-index="${i}" transform="translate(${x.toFixed(1)}, ${y.toFixed(1)})" opacity="${depthOpacity}" style="cursor:pointer;">
@@ -907,14 +942,24 @@
             <circle
               cx="0"
               cy="0"
+              r="${impactPx.toFixed(2)}"
+              fill="${redStyle.zoneFill}"
+              stroke="${redStyle.zoneStroke}"
+              stroke-width="${(isSelected ? 0.65 : 0.32).toFixed(2)}"
+              stroke-dasharray="${isSelected ? "none" : "1.8 1.5"}"
+              class="quake-impact-zone"
+            />
+            <circle
+              cx="0"
+              cy="0"
               r="${radius.toFixed(2)}"
-              fill="${fill}"
-              stroke="${stroke}"
+              fill="${redStyle.dotFill}"
+              stroke="${redStyle.dotStroke}"
               stroke-width="${(isSelected ? 0.65 : 0.25).toFixed(2)}"
               class="quake-dot ${isSelected ? "selected" : ""}"
             />
           </g>
-          <title>[클릭하여 정보 보기] M${mag.toFixed(1)} — ${q.place}</title>
+          <title>[클릭하여 정보 보기] M${mag.toFixed(1)} (영향 반경 약 ${impactKm}km) — ${q.place}</title>
         </g>
       `;
     }
@@ -930,7 +975,7 @@
       });
     });
 
-    // 2) 최신 지진(quakes[0]) 위치에 구면 곡률을 따라 눕혀진 규모 비례 과장 파동 비콘 표시
+    // 2) 최신 지진(quakes[0]) 위치에 통상 영향 반경 + 규모 비례 과장 파동 비콘 표시
     const newestQuake = quakes[0];
     const newestProj = project3D(newestQuake.lon, newestQuake.lat);
     if (!newestProj.visible) {
@@ -942,6 +987,9 @@
 
     const newestMag = Math.max(0.5, Number(newestQuake.mag) || 1.0);
     const newestDotRadius = computeQuakeDotRadius(newestMag) * scaleFactor;
+    const newestImpactPx = computeImpactRadiusPx(newestMag, scaleFactor);
+    const newestImpactKm = computeImpactRadiusKm(newestMag);
+    const newestRedStyle = getPureRedStyle(newestMag, isStale, runtime.selectedQuakeIndex === 0);
     const pulseMaxR = Math.round((20 + Math.pow(newestMag, 1.55) * 15) * scaleFactor);
     const glowR = Math.round(pulseMaxR * 0.65);
 
@@ -954,27 +1002,37 @@
     beaconLayer.innerHTML = `
       <g transform="${beaconSurfaceTransform}" style="--pulse-max-r: ${pulseMaxR}px;">
         <circle cx="0" cy="0" r="${glowR}" fill="url(#beaconGlow)" pointer-events="none" />
+        <circle
+          cx="0"
+          cy="0"
+          r="${newestImpactPx.toFixed(2)}"
+          fill="${newestRedStyle.zoneFill}"
+          stroke="${newestRedStyle.zoneStroke}"
+          stroke-width="0.45"
+          stroke-dasharray="2 1.5"
+          pointer-events="none"
+        />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-1" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-2" pointer-events="none" />
         <circle cx="0" cy="0" r="${newestDotRadius.toFixed(2)}" class="latest-core-beacon" pointer-events="none">
-          <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
+          <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} (영향 반경 약 ${newestImpactKm}km) — ${newestQuake.place}</title>
         </circle>
       </g>
       <circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="10" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;">
-        <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
+        <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} (영향 반경 약 ${newestImpactKm}km) — ${newestQuake.place}</title>
       </circle>
     `;
 
     if (calloutLayer) {
       calloutLayer.innerHTML = `
         <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)})" pointer-events="none">
-          <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(6, 11, 22, 0.88)" stroke="${isStale ? '#f59e0b' : '#22d3ee'}" stroke-width="1" />
-          <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#38bdf8'}" font-size="9" font-weight="bold" font-family="sans-serif">
+          <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(6, 11, 22, 0.88)" stroke="${isStale ? '#f59e0b' : '#ff3b4e'}" stroke-width="1" />
+          <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#ff4d6d'}" font-size="9" font-weight="bold" font-family="sans-serif">
             ${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} 진앙지
           </text>
           <text x="7" y="10" fill="#cbd5e1" font-size="8" font-family="monospace">
-            ${Number(newestQuake.lat).toFixed(2)}°N, ${Number(newestQuake.lon).toFixed(2)}°E
+            반경 ~${newestImpactKm}km (${Number(newestQuake.lat).toFixed(1)}°N, ${Number(newestQuake.lon).toFixed(1)}°E)
           </text>
         </g>
       `;

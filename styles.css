@@ -190,21 +190,32 @@ a:hover {
   transition: opacity 0.15s, filter 0.15s, fill 0.15s, stroke 0.15s;
 }
 
+.quake-impact-zone {
+  pointer-events: none;
+  transition: fill 0.15s, stroke 0.15s, stroke-width 0.15s;
+}
+
 .quake-dot-group:hover {
   opacity: 1 !important;
 }
 
+.quake-dot-group:hover .quake-impact-zone {
+  stroke: rgba(255, 40, 65, 0.9) !important;
+  stroke-width: 0.75px !important;
+  fill: rgba(255, 24, 44, 0.25) !important;
+}
+
 .quake-dot-group:hover .quake-dot,
 .quake-dot:hover {
-  fill: #ffffff;
-  stroke: #38bdf8;
+  fill: #ff182c !important;
+  stroke: #ffffff !important;
   stroke-width: 0.7px;
-  filter: drop-shadow(0 0 6px #ffffff) drop-shadow(0 0 12px #38bdf8) brightness(1.55);
+  filter: drop-shadow(0 0 6px #ff182c) drop-shadow(0 0 12px #ff4d6d) brightness(1.4);
 }
 
 .quake-dot.selected {
   stroke: #ffffff;
-  filter: drop-shadow(0 0 12px #38bdf8) brightness(1.45);
+  filter: drop-shadow(0 0 10px #ff182c) brightness(1.35);
 }
 
 /* 클릭한 과거/개별 지진 상세 정보 플로팅 카드 (클릭한 점 근처에 표시) */
@@ -300,7 +311,7 @@ a:hover {
 /* 오직 새로운 지진 유입 시에만 반짝이는 진앙지 레이더 비콘 */
 .latest-pulse-ring {
   fill: none;
-  stroke: #22d3ee;
+  stroke: #ff182c;
   stroke-width: 2.2;
   transform-box: fill-box;
   transform-origin: center;
@@ -309,16 +320,16 @@ a:hover {
 
 .latest-pulse-ring.delay-1 {
   animation-delay: 0.7s;
-  stroke: #f43f5e;
+  stroke: #ff3b4e;
 }
 
 .latest-pulse-ring.delay-2 {
   animation-delay: 1.4s;
-  stroke: #38bdf8;
+  stroke: #ff001e;
 }
 
 .latest-core-beacon {
-  fill: #f43f5e;
+  fill: #ff182c;
   stroke: #ffffff;
   stroke-width: 0.45;
   animation: core-blink 0.8s ease-in-out infinite alternate;
