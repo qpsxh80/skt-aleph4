@@ -813,27 +813,27 @@
   function getPureRedStyle(mag, isStale, isSelected) {
     const clampedMag = Math.max(0, Math.min(10, Number(mag) || 0));
     const ratio = clampedMag / 10;
-    const intensity = Math.pow(ratio, 0.68);
+    const intensity = Math.pow(ratio, 0.72);
 
-    const dotAlpha = Number((0.22 + 0.78 * intensity).toFixed(2));
-    const strokeAlpha = Number(Math.min(1.0, dotAlpha + 0.2).toFixed(2));
-    const zoneFillAlpha = Number((0.05 + 0.24 * intensity).toFixed(2));
-    const zoneStrokeAlpha = Number((0.16 + 0.58 * intensity).toFixed(2));
+    const dotAlpha = Number((0.20 + 0.80 * intensity).toFixed(2));
+    const strokeAlpha = Number(Math.min(1.0, dotAlpha + 0.18).toFixed(2));
+    // 겹쳤을 때 과하게 진해지지 않도록 그라데이션 전체 불투명도 계수를 낮게 설정
+    const zoneOpacity = Number((0.12 + 0.44 * intensity).toFixed(2));
 
     if (isStale && !isSelected) {
       return {
         dotFill: `rgba(245, 158, 11, ${dotAlpha})`,
         dotStroke: `rgba(251, 191, 36, ${strokeAlpha})`,
-        zoneFill: `rgba(245, 158, 11, ${zoneFillAlpha})`,
-        zoneStroke: `rgba(251, 191, 36, ${zoneStrokeAlpha})`
+        zoneGradUrl: "url(#impactStaleGrad)",
+        zoneOpacity
       };
     }
 
     return {
       dotFill: isSelected ? "#ff182c" : `rgba(255, 24, 44, ${dotAlpha})`,
       dotStroke: isSelected ? "#ffffff" : `rgba(255, 65, 82, ${strokeAlpha})`,
-      zoneFill: isSelected ? `rgba(255, 24, 44, ${Math.min(0.42, zoneFillAlpha + 0.14).toFixed(2)})` : `rgba(255, 24, 44, ${zoneFillAlpha})`,
-      zoneStroke: isSelected ? "rgba(255, 90, 105, 0.95)" : `rgba(255, 36, 56, ${zoneStrokeAlpha})`
+      zoneGradUrl: "url(#impactRedGrad)",
+      zoneOpacity: isSelected ? Math.min(0.9, zoneOpacity + 0.35) : zoneOpacity
     };
   }
 
@@ -943,10 +943,9 @@
               cx="0"
               cy="0"
               r="${impactPx.toFixed(2)}"
-              fill="${redStyle.zoneFill}"
-              stroke="${redStyle.zoneStroke}"
-              stroke-width="${(isSelected ? 0.65 : 0.32).toFixed(2)}"
-              stroke-dasharray="${isSelected ? "none" : "1.8 1.5"}"
+              fill="${redStyle.zoneGradUrl}"
+              fill-opacity="${redStyle.zoneOpacity}"
+              stroke="none"
               class="quake-impact-zone"
             />
             <circle
@@ -1006,10 +1005,9 @@
           cx="0"
           cy="0"
           r="${newestImpactPx.toFixed(2)}"
-          fill="${newestRedStyle.zoneFill}"
-          stroke="${newestRedStyle.zoneStroke}"
-          stroke-width="0.45"
-          stroke-dasharray="2 1.5"
+          fill="${newestRedStyle.zoneGradUrl}"
+          fill-opacity="${newestRedStyle.zoneOpacity}"
+          stroke="none"
           pointer-events="none"
         />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />

@@ -192,7 +192,7 @@ a:hover {
 
 .quake-impact-zone {
   pointer-events: none;
-  transition: fill 0.15s, stroke 0.15s, stroke-width 0.15s;
+  transition: fill-opacity 0.18s;
 }
 
 .quake-dot-group:hover {
@@ -200,9 +200,7 @@ a:hover {
 }
 
 .quake-dot-group:hover .quake-impact-zone {
-  stroke: rgba(255, 40, 65, 0.9) !important;
-  stroke-width: 0.75px !important;
-  fill: rgba(255, 24, 44, 0.25) !important;
+  fill-opacity: 0.85 !important;
 }
 
 .quake-dot-group:hover .quake-dot,
