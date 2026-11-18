@@ -256,6 +256,7 @@
     if (zoomText) {
       zoomText.textContent = `${state.zoomScale.toFixed(1)}x`;
     }
+    positionSelectedQuakeCard();
   }
 
   function zoomMapAtPoint(newScale, focalSvgX, focalSvgY) {
@@ -270,6 +271,43 @@
 
     applyMapZoomTransform();
     renderQuakesOnMap();
+  }
+
+  function positionSelectedQuakeCard() {
+    const card = document.getElementById("selected-quake-card");
+    const svgEl = document.getElementById("world-map-svg");
+    const viewportEl = document.getElementById("map-viewport");
+    if (!card || !svgEl || !viewportEl || card.style.display === "none") return;
+
+    const quakes = (state.lastNormal && state.lastNormal.quakes) || [];
+    const idx = state.selectedQuakeIndex;
+    if (idx === null || idx < 0 || idx >= quakes.length) return;
+
+    const q = quakes[idx];
+    const { x, y } = lonLatToXY(q.lon, q.lat);
+    const viewX = state.panX + x * state.zoomScale;
+    const viewY = state.panY + y * state.zoomScale;
+
+    const svgRect = svgEl.getBoundingClientRect();
+    const vpRect = viewportEl.getBoundingClientRect();
+
+    const dotPixelX = svgRect.left - vpRect.left + (viewX / 1000) * svgRect.width;
+    const dotPixelY = svgRect.top - vpRect.top + (viewY / 500) * svgRect.height;
+
+    const cardWidth = card.offsetWidth || 265;
+    const cardHeight = card.offsetHeight || 115;
+
+    let left = dotPixelX + 12;
+    let top = dotPixelY - cardHeight / 2;
+
+    if (left + cardWidth > vpRect.width - 14) {
+      left = dotPixelX - cardWidth - 12;
+    }
+    left = Math.max(12, Math.min(vpRect.width - cardWidth - 12, left));
+    top = Math.max(12, Math.min(vpRect.height - cardHeight - 12, top));
+
+    card.style.left = `${Math.round(left)}px`;
+    card.style.top = `${Math.round(top)}px`;
   }
 
   function renderSelectedQuakeCard() {
@@ -304,17 +342,19 @@
       magBadge.style.borderColor = "rgba(56, 189, 248, 0.5)";
     }
 
-    typeLabel.textContent = idx === 0 ? "최신 감지 지진 (레이더 점멸 중)" : `이전 지진 기록 (#${idx + 1})`;
+    typeLabel.textContent = idx === 0 ? "최신 감지 지진" : `이전 지진 기록 (#${idx + 1})`;
     document.getElementById("sq-place").textContent = q.place;
     document.getElementById("sq-coords").textContent = `${Number(q.lat).toFixed(2)}°N, ${Number(q.lon).toFixed(2)}°E`;
     document.getElementById("sq-depth").textContent = `${Number(q.depth).toFixed(1)} km`;
     document.getElementById("sq-time").textContent = formatKSTFull(q.time);
+
+    positionSelectedQuakeCard();
   }
 
   /**
    * 세계지도 위에 지진 분포를 그리고, 오직 가장 최신 유입된 지진(quakes[0]) 위치에만
-   * 레이더 파동 비콘을 반짝입니다.
-   * 이전 지진 점을 클릭하면 비콘은 이동하지 않고, 클릭한 점만 밝아지면서 상세 정보 카드가 열립니다.
+   * 지진 규모에 비례해 과장된 크기의 레이더 파동 비콘을 반짝입니다.
+   * 모든 점 크기는 기존 공식의 20%로 축소하며, 클릭 시 점 크기는 변하지 않고 밝기만 강조됩니다.
    */
   function renderQuakesOnMap() {
     const quakesLayer = document.getElementById("map-layer-quakes");
@@ -332,65 +372,52 @@
       return;
     }
 
-    // 1) 최근 24시간 이전 지진 점들 렌더링 (클릭 시 해당 점만 밝아지며 상세 정보 표시)
+    // 1) 최근 24시간 이전 지진 점들 렌더링 (기존 공식 × 0.2 적용, 클릭 시 크기 변화 없음)
     let dotsHtml = "";
     for (let i = quakes.length - 1; i >= 1; i--) {
       const q = quakes[i];
       const { x, y } = lonLatToXY(q.lon, q.lat);
       const mag = Number(q.mag) || 0;
       const isSelected = state.selectedQuakeIndex === i;
-      const baseRadius = Math.max(2.2, Math.min(7.5, 1.9 + mag * 1.1)) * (isSelected ? 1.45 : 1);
+      const baseRadius = Math.max(2.2, Math.min(7.5, 1.9 + mag * 1.1)) * 0.2;
       const radius = baseRadius * invScale;
+      const hitRadius = Math.max(radius, 3.2 * invScale);
 
-      let fill = isSelected ? "rgba(125, 211, 252, 0.98)" : "rgba(56, 189, 248, 0.52)";
-      let stroke = isSelected ? "#ffffff" : "rgba(56, 189, 248, 0.9)";
+      let fill = isSelected ? "#ffffff" : "rgba(56, 189, 248, 0.65)";
+      let stroke = isSelected ? "#38bdf8" : "rgba(56, 189, 248, 0.95)";
       if (mag >= 4.5) {
-        fill = isSelected ? "rgba(253, 164, 175, 0.98)" : "rgba(244, 63, 94, 0.68)";
-        stroke = isSelected ? "#ffffff" : "#fda4af";
+        fill = isSelected ? "#ffffff" : "rgba(244, 63, 94, 0.8)";
+        stroke = isSelected ? "#f43f5e" : "#fda4af";
       } else if (mag >= 2.5) {
-        fill = isSelected ? "rgba(253, 230, 138, 0.98)" : "rgba(251, 191, 36, 0.62)";
-        stroke = isSelected ? "#ffffff" : "#fde68a";
+        fill = isSelected ? "#ffffff" : "rgba(251, 191, 36, 0.75)";
+        stroke = isSelected ? "#fbbf24" : "#fde68a";
       }
 
       if (isStale && !isSelected) {
-        fill = "rgba(245, 158, 11, 0.42)";
-        stroke = "rgba(251, 191, 36, 0.78)";
-      }
-
-      // 선택된 과거 지진 점에는 은은한 고정 광원 링 추가 (파동 없음)
-      if (isSelected) {
-        dotsHtml += `
-          <circle
-            cx="${x}"
-            cy="${y}"
-            r="${(radius * 2.2).toFixed(2)}"
-            fill="rgba(56, 189, 248, 0.22)"
-            stroke="#38bdf8"
-            stroke-width="${(1.2 * invScale).toFixed(2)}"
-            pointer-events="none"
-          />
-        `;
+        fill = "rgba(245, 158, 11, 0.5)";
+        stroke = "rgba(251, 191, 36, 0.82)";
       }
 
       dotsHtml += `
-        <circle
-          cx="${x}"
-          cy="${y}"
-          r="${radius.toFixed(2)}"
-          fill="${fill}"
-          stroke="${stroke}"
-          stroke-width="${((isSelected ? 1.8 : 0.8) * invScale).toFixed(2)}"
-          class="quake-dot ${isSelected ? "selected" : ""}"
-          data-quake-index="${i}"
-        >
+        <g class="quake-dot-group" data-quake-index="${i}" style="cursor:pointer;">
+          <circle cx="${x}" cy="${y}" r="${hitRadius.toFixed(2)}" fill="transparent" />
+          <circle
+            cx="${x}"
+            cy="${y}"
+            r="${radius.toFixed(2)}"
+            fill="${fill}"
+            stroke="${stroke}"
+            stroke-width="${((isSelected ? 0.55 : 0.22) * invScale).toFixed(2)}"
+            class="quake-dot ${isSelected ? "selected" : ""}"
+          />
           <title>[클릭하여 정보 보기] M${mag.toFixed(1)} — ${q.place}</title>
-        </circle>
+        </g>
       `;
     }
     quakesLayer.innerHTML = dotsHtml;
 
-    quakesLayer.querySelectorAll(".quake-dot").forEach((dot) => {
-      dot.addEventListener("click", (e) => {
+    quakesLayer.querySelectorAll(".quake-dot-group").forEach((group) => {
+      group.addEventListener("click", (e) => {
         e.stopPropagation();
         if (state.didDragMove) return;
         const idx = Number(e.currentTarget.getAttribute("data-quake-index"));
@@ -399,23 +426,30 @@
       });
     });
 
-    // 2) 오직 가장 최신 유입된 데이터(quakes[0]) 좌표에만 반짝임 비콘 고정 표시
+    // 2) 오직 가장 최신 유입된 데이터(quakes[0]) 좌표에만 규모 비례 과장 파동 비콘 표시
     const newestQuake = quakes[0];
+    const newestMag = Math.max(0.5, Number(newestQuake.mag) || 1.0);
+    const newestDotRadius = Math.max(2.2, Math.min(7.5, 1.9 + newestMag * 1.1)) * 0.2;
+    // 점 크기(0.4~1.5px)보다 훨씬 과장되게 퍼지며, 규모(mag)에 비례해 커지는 파동 반경
+    const pulseMaxR = Math.round(20 + Math.pow(newestMag, 1.55) * 15);
+    const glowR = Math.round(pulseMaxR * 0.65);
+
     const { x: bx, y: by } = lonLatToXY(newestQuake.lon, newestQuake.lat);
     const labelOffsetX = (bx > 750 ? -190 : 14) * invScale;
     const labelOffsetY = (by < 50 ? 22 : -12) * invScale;
     const statusPrefix = isStale ? "[STALE 유지] " : "[NEW 감지] ";
 
     beaconLayer.innerHTML = `
-      <line x1="${bx}" y1="0" x2="${bx}" y2="500" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="${(0.9 * invScale).toFixed(2)}" stroke-dasharray="${3 * invScale} ${4 * invScale}" pointer-events="none" />
-      <line x1="0" y1="${by}" x2="1000" y2="${by}" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="${(0.9 * invScale).toFixed(2)}" stroke-dasharray="${3 * invScale} ${4 * invScale}" pointer-events="none" />
+      <line x1="${bx}" y1="0" x2="${bx}" y2="500" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="${(0.8 * invScale).toFixed(2)}" stroke-dasharray="${3 * invScale} ${4 * invScale}" pointer-events="none" />
+      <line x1="0" y1="${by}" x2="1000" y2="${by}" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="${(0.8 * invScale).toFixed(2)}" stroke-dasharray="${3 * invScale} ${4 * invScale}" pointer-events="none" />
 
-      <g transform="translate(${bx}, ${by}) scale(${invScale.toFixed(3)})">
-        <circle cx="0" cy="0" r="28" fill="url(#beaconGlow)" pointer-events="none" />
-        <circle cx="0" cy="0" r="6" class="latest-pulse-ring" pointer-events="none" />
-        <circle cx="0" cy="0" r="6" class="latest-pulse-ring delay-1" pointer-events="none" />
-        <circle cx="0" cy="0" r="6" class="latest-pulse-ring delay-2" pointer-events="none" />
-        <circle cx="0" cy="0" r="6" class="latest-core-beacon" id="latest-beacon-dot" style="cursor:pointer;">
+      <g transform="translate(${bx}, ${by}) scale(${invScale.toFixed(3)})" style="--pulse-max-r: ${pulseMaxR}px;">
+        <circle cx="0" cy="0" r="${glowR}" fill="url(#beaconGlow)" pointer-events="none" />
+        <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />
+        <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-1" pointer-events="none" />
+        <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-2" pointer-events="none" />
+        <circle cx="0" cy="0" r="4" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;" />
+        <circle cx="0" cy="0" r="${newestDotRadius.toFixed(2)}" class="latest-core-beacon" pointer-events="none">
           <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
         </circle>
       </g>
@@ -431,9 +465,9 @@
       </g>
     `;
 
-    const latestDot = document.getElementById("latest-beacon-dot");
-    if (latestDot) {
-      latestDot.addEventListener("click", (e) => {
+    const latestHit = document.getElementById("latest-beacon-hit");
+    if (latestHit) {
+      latestHit.addEventListener("click", (e) => {
         e.stopPropagation();
         if (state.didDragMove) return;
         state.selectedQuakeIndex = state.selectedQuakeIndex === 0 ? null : 0;
@@ -445,38 +479,42 @@
   }
 
   /**
-   * 새로운 데이터가 도착했을 때 해당 좌표에 강한 섬광 파동(Flash Burst)을 터뜨립니다.
+   * 새로운 데이터가 도착했을 때 해당 좌표에 지진 규모에 비례한 강한 섬광 파동(Flash Burst)을 터뜨립니다.
    */
   function triggerNewDataArrivalFlash() {
     const beaconLayer = document.getElementById("map-layer-beacon");
     if (!beaconLayer || !state.lastNormal || !state.lastNormal.quakes.length) return;
 
     const newest = state.lastNormal.quakes[0];
+    const newestMag = Math.max(0.5, Number(newest.mag) || 1.0);
+    const maxBurstR = Math.round(28 + Math.pow(newestMag, 1.6) * 18);
     const { x, y } = lonLatToXY(newest.lon, newest.lat);
 
     const flashCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     flashCircle.setAttribute("cx", String(x));
     flashCircle.setAttribute("cy", String(y));
-    flashCircle.setAttribute("r", "6");
-    flashCircle.setAttribute("fill", "rgba(34, 211, 238, 0.5)");
+    flashCircle.setAttribute("r", "2");
+    flashCircle.setAttribute("fill", "rgba(34, 211, 238, 0.45)");
     flashCircle.setAttribute("stroke", "#ffffff");
-    flashCircle.setAttribute("stroke-width", "3.5");
+    flashCircle.setAttribute("stroke-width", "2.8");
+    flashCircle.setAttribute("pointer-events", "none");
     beaconLayer.appendChild(flashCircle);
 
-    let r = 6;
+    let r = 2;
     let opacity = 1;
+    const step = Math.max(2.5, maxBurstR / 16);
     const timer = setInterval(() => {
-      r += 5;
-      opacity -= 0.07;
-      if (opacity <= 0) {
+      r += step;
+      opacity -= 0.065;
+      if (opacity <= 0 || r >= maxBurstR) {
         clearInterval(timer);
         flashCircle.remove();
       } else {
-        flashCircle.setAttribute("r", String(r));
+        flashCircle.setAttribute("r", String(r.toFixed(1)));
         flashCircle.setAttribute("stroke-opacity", String(opacity));
-        flashCircle.setAttribute("fill-opacity", String(opacity * 0.35));
+        flashCircle.setAttribute("fill-opacity", String(opacity * 0.3));
       }
-    }, 28);
+    }, 26);
   }
 
   // ============================================================================
