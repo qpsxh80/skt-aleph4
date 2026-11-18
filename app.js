@@ -878,8 +878,11 @@
       const mag = Number(q.mag) || 0;
       const isSelected = runtime.selectedQuakeIndex === i;
       const radius = computeQuakeDotRadius(mag) * scaleFactor;
-      const hitRadius = Math.max(radius, 3.2);
-      const surfaceTransform = getSurfaceTransform(x, y, z);
+      const hitRadius = Math.max(radius * 2, 9.0);
+      const dx = x - GLOBE_CX;
+      const dy = y - GLOBE_CY;
+      const angleDeg = Math.atan2(dy, dx) * (180 / Math.PI);
+      const foreshorten = Math.max(0.16, Math.min(1.0, z));
       const depthOpacity = isSelected ? 1.0 : Number((0.35 + 0.65 * z).toFixed(2));
 
       let fill = isSelected ? "#ffffff" : "rgba(56, 189, 248, 0.82)";
@@ -898,17 +901,19 @@
       }
 
       dotsHtml += `
-        <g class="quake-dot-group" data-quake-index="${i}" transform="${surfaceTransform}" opacity="${depthOpacity}" style="cursor:pointer;">
+        <g class="quake-dot-group" data-quake-index="${i}" transform="translate(${x.toFixed(1)}, ${y.toFixed(1)})" opacity="${depthOpacity}" style="cursor:pointer;">
           <circle cx="0" cy="0" r="${hitRadius.toFixed(2)}" fill="transparent" />
-          <circle
-            cx="0"
-            cy="0"
-            r="${radius.toFixed(2)}"
-            fill="${fill}"
-            stroke="${stroke}"
-            stroke-width="${(isSelected ? 0.65 : 0.25).toFixed(2)}"
-            class="quake-dot ${isSelected ? "selected" : ""}"
-          />
+          <g transform="rotate(${angleDeg.toFixed(1)}) scale(${foreshorten.toFixed(3)}, 1)">
+            <circle
+              cx="0"
+              cy="0"
+              r="${radius.toFixed(2)}"
+              fill="${fill}"
+              stroke="${stroke}"
+              stroke-width="${(isSelected ? 0.65 : 0.25).toFixed(2)}"
+              class="quake-dot ${isSelected ? "selected" : ""}"
+            />
+          </g>
           <title>[클릭하여 정보 보기] M${mag.toFixed(1)} — ${q.place}</title>
         </g>
       `;
@@ -952,11 +957,13 @@
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-1" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-2" pointer-events="none" />
-        <circle cx="0" cy="0" r="5" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;" />
         <circle cx="0" cy="0" r="${newestDotRadius.toFixed(2)}" class="latest-core-beacon" pointer-events="none">
           <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
         </circle>
       </g>
+      <circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="10" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;">
+        <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
+      </circle>
     `;
 
     if (calloutLayer) {
