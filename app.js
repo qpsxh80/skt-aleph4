@@ -610,7 +610,7 @@
   }
 
   function initWorldMapBase() {
-    // 중심(0%)부터 끝(100%)까지 1% 간격(101개 정지점)으로 매끄럽게 감쇠하는 방사형 그라데이션 생성
+    // 중심(0%)부터 끝(100%)까지 1% 간격(101개 정지점)으로 진하고 선명하게 퍼지는 방사형 그라데이션 생성
     const redGrad = document.getElementById("impactRedGrad");
     const staleGrad = document.getElementById("impactStaleGrad");
     if (redGrad && staleGrad) {
@@ -618,9 +618,9 @@
       let staleStops = "";
       for (let p = 0; p <= 100; p += 1) {
         const t = 1 - p / 100;
-        const alpha = (0.95 * Math.pow(t, 1.35)).toFixed(4);
-        redStops += `<stop offset="${p}%" stop-color="#ff0820" stop-opacity="${alpha}" />`;
-        staleStops += `<stop offset="${p}%" stop-color="#d97706" stop-opacity="${alpha}" />`;
+        const alpha = Math.pow(t, 0.72).toFixed(4);
+        redStops += `<stop offset="${p}%" stop-color="#ff1a32" stop-opacity="${alpha}" />`;
+        staleStops += `<stop offset="${p}%" stop-color="#f59e0b" stop-opacity="${alpha}" />`;
       }
       redGrad.innerHTML = redStops;
       staleGrad.innerHTML = staleStops;
@@ -728,9 +728,9 @@
       mapData.mapLabels.forEach((lbl) => {
         const p = project3D(lbl.lon, lbl.lat);
         if (p.z < 0.18) return;
-        let fill = "rgba(30, 64, 175, 0.25)";
-        if (lbl.type === "fault") fill = "rgba(225, 29, 72, 0.35)";
-        if (lbl.type === "country") fill = "rgba(71, 85, 105, 0.55)";
+        let fill = "rgba(56, 189, 248, 0.18)";
+        if (lbl.type === "fault") fill = "rgba(244, 63, 94, 0.3)";
+        if (lbl.type === "country") fill = "rgba(148, 163, 184, 0.42)";
         labelsHtml += `<text x="${p.x}" y="${p.y}" fill="${fill}" font-size="${lbl.size || 8}" font-weight="700" class="map-geo-label">${lbl.text}</text>`;
       });
       labelsLayer.innerHTML = labelsHtml;
