@@ -192,15 +192,17 @@ a:hover {
 
 .quake-impact-zone {
   pointer-events: none;
-  transition: fill-opacity 0.18s;
+  transition: fill-opacity 0.15s, filter 0.15s;
 }
 
 .quake-dot-group:hover {
   opacity: 1 !important;
 }
 
-.quake-dot-group:hover .quake-impact-zone {
-  fill-opacity: 0.85 !important;
+.quake-dot-group:hover .quake-impact-zone,
+.quake-impact-zone.selected {
+  fill-opacity: 1 !important;
+  filter: drop-shadow(0 0 5px rgba(255, 8, 32, 0.75)) contrast(1.15);
 }
 
 .quake-dot-group:hover .quake-dot,

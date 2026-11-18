@@ -610,6 +610,22 @@
   }
 
   function initWorldMapBase() {
+    // 중심(0%)부터 끝(100%)까지 1% 간격(101개 정지점)으로 매끄럽게 감쇠하는 방사형 그라데이션 생성
+    const redGrad = document.getElementById("impactRedGrad");
+    const staleGrad = document.getElementById("impactStaleGrad");
+    if (redGrad && staleGrad) {
+      let redStops = "";
+      let staleStops = "";
+      for (let p = 0; p <= 100; p += 1) {
+        const t = 1 - p / 100;
+        const alpha = (0.95 * Math.pow(t, 1.35)).toFixed(4);
+        redStops += `<stop offset="${p}%" stop-color="#ff0820" stop-opacity="${alpha}" />`;
+        staleStops += `<stop offset="${p}%" stop-color="#d97706" stop-opacity="${alpha}" />`;
+      }
+      redGrad.innerHTML = redStops;
+      staleGrad.innerHTML = staleStops;
+    }
+
     render3DGlobeBase();
   }
 
@@ -817,8 +833,8 @@
 
     const dotAlpha = Number((0.20 + 0.80 * intensity).toFixed(2));
     const strokeAlpha = Number(Math.min(1.0, dotAlpha + 0.18).toFixed(2));
-    // 겹쳤을 때 과하게 진해지지 않도록 그라데이션 전체 불투명도 계수를 낮게 설정
-    const zoneOpacity = Number((0.12 + 0.44 * intensity).toFixed(2));
+    // 진도별 그라데이션 전체 불투명도를 45% ~ 100% 범위로 강조
+    const zoneOpacity = Number((0.45 + 0.55 * intensity).toFixed(2));
 
     if (isStale && !isSelected) {
       return {
@@ -833,7 +849,7 @@
       dotFill: isSelected ? "#ff182c" : `rgba(255, 24, 44, ${dotAlpha})`,
       dotStroke: isSelected ? "#ffffff" : `rgba(255, 65, 82, ${strokeAlpha})`,
       zoneGradUrl: "url(#impactRedGrad)",
-      zoneOpacity: isSelected ? Math.min(0.9, zoneOpacity + 0.35) : zoneOpacity
+      zoneOpacity: isSelected ? 1.0 : zoneOpacity
     };
   }
 
@@ -946,16 +962,7 @@
               fill="${redStyle.zoneGradUrl}"
               fill-opacity="${redStyle.zoneOpacity}"
               stroke="none"
-              class="quake-impact-zone"
-            />
-            <circle
-              cx="0"
-              cy="0"
-              r="${radius.toFixed(2)}"
-              fill="${redStyle.dotFill}"
-              stroke="${redStyle.dotStroke}"
-              stroke-width="${(isSelected ? 0.65 : 0.25).toFixed(2)}"
-              class="quake-dot ${isSelected ? "selected" : ""}"
+              class="quake-impact-zone ${isSelected ? "selected" : ""}"
             />
           </g>
           <title>[클릭하여 정보 보기] M${mag.toFixed(1)} (영향 반경 약 ${impactKm}km) — ${q.place}</title>
@@ -974,7 +981,7 @@
       });
     });
 
-    // 2) 최신 지진(quakes[0]) 위치에 통상 영향 반경 + 규모 비례 과장 파동 비콘 표시
+    // 2) 최신 지진(quakes[0]) 위치에 단일 101단계 그라데이션 + 규모 비례 파동 비콘 표시
     const newestQuake = quakes[0];
     const newestProj = project3D(newestQuake.lon, newestQuake.lat);
     if (!newestProj.visible) {
@@ -985,12 +992,10 @@
     }
 
     const newestMag = Math.max(0.5, Number(newestQuake.mag) || 1.0);
-    const newestDotRadius = computeQuakeDotRadius(newestMag) * scaleFactor;
     const newestImpactPx = computeImpactRadiusPx(newestMag, scaleFactor);
     const newestImpactKm = computeImpactRadiusKm(newestMag);
     const newestRedStyle = getPureRedStyle(newestMag, isStale, runtime.selectedQuakeIndex === 0);
     const pulseMaxR = Math.round((20 + Math.pow(newestMag, 1.55) * 15) * scaleFactor);
-    const glowR = Math.round(pulseMaxR * 0.65);
 
     const { x: bx, y: by, z: bz } = newestProj;
     const beaconSurfaceTransform = getSurfaceTransform(bx, by, bz);
@@ -1000,7 +1005,6 @@
 
     beaconLayer.innerHTML = `
       <g transform="${beaconSurfaceTransform}" style="--pulse-max-r: ${pulseMaxR}px;">
-        <circle cx="0" cy="0" r="${glowR}" fill="url(#beaconGlow)" pointer-events="none" />
         <circle
           cx="0"
           cy="0"
@@ -1008,14 +1012,12 @@
           fill="${newestRedStyle.zoneGradUrl}"
           fill-opacity="${newestRedStyle.zoneOpacity}"
           stroke="none"
+          class="quake-impact-zone ${runtime.selectedQuakeIndex === 0 ? "selected" : ""}"
           pointer-events="none"
         />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-1" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-2" pointer-events="none" />
-        <circle cx="0" cy="0" r="${newestDotRadius.toFixed(2)}" class="latest-core-beacon" pointer-events="none">
-          <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} (영향 반경 약 ${newestImpactKm}km) — ${newestQuake.place}</title>
-        </circle>
       </g>
       <circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="10" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;">
         <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} (영향 반경 약 ${newestImpactKm}km) — ${newestQuake.place}</title>
