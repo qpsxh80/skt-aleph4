@@ -186,12 +186,109 @@ a:hover {
 }
 
 .quake-dot {
-  transition: opacity 0.2s;
+  cursor: pointer;
+  transition: opacity 0.2s, filter 0.2s;
 }
 
 .quake-dot:hover {
   stroke: #ffffff;
-  stroke-width: 1.8px;
+  stroke-width: 1.5px;
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.75));
+}
+
+.quake-dot.selected {
+  stroke: #ffffff;
+  filter: drop-shadow(0 0 12px #38bdf8) brightness(1.45);
+}
+
+/* 클릭한 과거/개별 지진 상세 정보 플로팅 카드 */
+.selected-quake-card {
+  position: absolute;
+  top: 86px;
+  right: 38px;
+  z-index: 20;
+  width: 310px;
+  background: rgba(8, 15, 30, 0.92);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.55);
+  border-radius: 12px;
+  padding: 13px 15px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.65), 0 0 20px rgba(56, 189, 248, 0.18);
+  animation: fade-slide-in 0.18s ease-out;
+}
+
+@keyframes fade-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.sq-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sq-badge {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.5);
+}
+
+.sq-type {
+  font-size: 0.73rem;
+  color: var(--text-secondary);
+  flex: 1;
+}
+
+.sq-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 2px 5px;
+}
+
+.sq-close:hover {
+  color: #ffffff;
+}
+
+.sq-place {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 9px;
+  line-height: 1.35;
+}
+
+.sq-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 10px;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  background: rgba(4, 9, 20, 0.65);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(30, 50, 86, 0.7);
+}
+
+.sq-meta-grid strong {
+  color: #e2e8f0;
+  font-family: var(--font-mono);
 }
 
 /* 오직 새로운 지진 유입 시에만 반짝이는 진앙지 레이더 비콘 */
