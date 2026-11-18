@@ -62,8 +62,7 @@ a:hover {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 74px 24px 66px 72px;
-  transition: padding-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  padding: 74px 20px 66px 20px;
 }
 
 #world-map-svg {
@@ -360,7 +359,7 @@ a:hover {
 .hud-top-bar {
   position: relative;
   z-index: 10;
-  margin: 12px 20px 0 72px;
+  margin: 12px 20px 0 20px;
   padding: 10px 18px;
   background: var(--bg-glass);
   backdrop-filter: blur(12px);
@@ -372,6 +371,27 @@ a:hover {
   align-items: center;
   gap: 14px;
   box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+}
+
+.menu-toggle-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--border-normal);
+  background: rgba(20, 34, 61, 0.85);
+  color: var(--text-primary);
+  font-size: 1.05rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.menu-toggle-btn:hover {
+  border-color: var(--accent-cyan);
+  color: #38bdf8;
+  background: #1a2c4e;
 }
 
 .app-stage.is-stale .hud-top-bar {
@@ -487,7 +507,7 @@ a:hover {
 .hud-bottom-bar {
   position: relative;
   z-index: 10;
-  margin: 0 20px 12px 72px;
+  margin: 0 20px 12px 20px;
   padding: 9px 16px;
   background: var(--bg-glass);
   backdrop-filter: blur(12px);
@@ -531,69 +551,16 @@ a:hover {
 }
 
 /* ==========================================================================
-   3. 왼쪽 사이드 탭 레일 & 슬라이드 드로어
+   3. 왼쪽 슬라이드 드로어
    ========================================================================== */
-.left-rail {
+.side-drawer {
   position: fixed;
   top: 0;
   left: 0;
   bottom: 0;
-  width: 56px;
-  z-index: 40;
-  background: rgba(7, 13, 26, 0.95);
-  border-right: 1px solid var(--border-normal);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 14px 0;
-  gap: 10px;
-}
-
-.rail-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: 1.15rem;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.18s ease;
-}
-
-.rail-btn:hover {
-  background: rgba(56, 189, 248, 0.12);
-  color: var(--text-primary);
-  border-color: rgba(56, 189, 248, 0.35);
-}
-
-.rail-btn.active {
-  background: rgba(6, 182, 212, 0.22);
-  color: #38bdf8;
-  border-color: #22d3ee;
-  box-shadow: 0 0 12px rgba(6, 182, 212, 0.3);
-}
-
-.rail-label {
-  font-size: 0.62rem;
-  color: var(--text-secondary);
-  text-align: center;
-  margin-top: -6px;
-  margin-bottom: 4px;
-  font-weight: 600;
-}
-
-.side-drawer {
-  position: fixed;
-  top: 0;
-  left: 56px;
-  bottom: 0;
-  width: 540px;
-  max-width: calc(100vw - 56px);
-  z-index: 35;
+  width: 440px;
+  max-width: 92vw;
+  z-index: 45;
   background: var(--bg-drawer);
   backdrop-filter: blur(18px);
   border-right: 1px solid var(--border-normal);

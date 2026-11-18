@@ -1330,41 +1330,6 @@
     }
   }
 
-  function runSuccessSequence() {
-    runtime.mode = "fixture";
-    let s = resetEvaluationState();
-    s = runFixture(s, OFFICIAL_FIXTURES["T04-NORMAL-D1-A"]);
-    s = runFixture(s, OFFICIAL_FIXTURES["T04-NORMAL-D1-B"]);
-    s = runFixture(s, OFFICIAL_FIXTURES["T04-NORMAL-D2"]);
-    runtime.evalState = s;
-    runtime.lastRawExcerpt = OFFICIAL_FIXTURES["T04-NORMAL-D2"];
-    document.querySelectorAll(".fixture-btn").forEach((btn) => {
-      btn.classList.toggle("active-fault", btn.getAttribute("data-fixture-id") === "T04-NORMAL-D2");
-    });
-    renderAll();
-    triggerNewDataArrivalFlash();
-  }
-
-  function runRecoverySequence() {
-    runtime.mode = "fixture";
-    let s = resetEvaluationState();
-    s = runFixture(s, OFFICIAL_FIXTURES["T04-NORMAL-D1-A"]);
-    s = runFixture(s, OFFICIAL_FIXTURES["T04-NORMAL-D1-B"]);
-    s = runFixture(s, OFFICIAL_FIXTURES["T04-TIMEOUT"]);
-    runtime.evalState = s;
-    renderAll();
-
-    setTimeout(() => {
-      runtime.evalState = runFixture(runtime.evalState, OFFICIAL_FIXTURES["T04-RECOVER-D2"]);
-      runtime.lastRawExcerpt = OFFICIAL_FIXTURES["T04-RECOVER-D2"];
-      document.querySelectorAll(".fixture-btn").forEach((btn) => {
-        btn.classList.toggle("active-fault", btn.getAttribute("data-fixture-id") === "T04-RECOVER-D2");
-      });
-      renderAll();
-      triggerNewDataArrivalFlash();
-    }, 350);
-  }
-
   function handleResetEvaluation() {
     // public-contract.json: "합성 평가 상태만 빈 상태로 되돌린다."
     runtime.evalState = resetEvaluationState();
@@ -1429,82 +1394,45 @@
         `M${Number(lq.mag).toFixed(1)} ${lq.place} (${Number(lq.lat).toFixed(2)}°N, ${Number(lq.lon).toFixed(2)}°E)`;
     }
 
-    // 드로어 탭 1 진단 창
+    // 드로어 상태 라벨
     const faultTitle = document.getElementById("fault-Diagnostic-title");
-    const faultDesc = document.getElementById("fault-diagnostic-desc");
-    const fixtureJsonEl = document.getElementById("fault-fixture-json");
-
-    if (status.error_code === "none") {
-      faultTitle.textContent = `✅ 상태: freshness="fresh", error_code="none" (모드: ${runtime.mode.toUpperCase()})`;
-      faultTitle.style.color = "#34d399";
-      faultDesc.textContent = `현재 일별 행 개수: ${activeState.daily_readings.length}건 / 마지막 정상값: ${reading ? reading.normalized_value : "--"}`;
-    } else {
-      faultTitle.textContent = `🚨 실패 상태: freshness="stale", error_code="${status.error_code}"`;
-      faultTitle.style.color = "#fda4af";
-      faultDesc.textContent = `실패 뒤 마지막 정상값(${reading ? reading.normalized_value : "--"})과 일별 행(${activeState.daily_readings.length}건)이 지워지지 않고 유지됩니다.`;
-    }
-
-    if (fixtureJsonEl) {
-      fixtureJsonEl.textContent = JSON.stringify(
-        {
-          mode: runtime.mode,
-          status: activeState.status,
-          row_count: activeState.daily_readings.length,
-          stored_value: reading ? reading.normalized_value : null,
-          delta: activeState.last_delta,
-          last_run: activeState.last_run
-        },
-        null,
-        2
-      );
+    if (faultTitle) {
+      if (status.error_code === "none") {
+        faultTitle.textContent = "fresh / none";
+        faultTitle.style.color = "#34d399";
+      } else {
+        faultTitle.textContent = `stale / ${status.error_code}`;
+        faultTitle.style.color = "#fda4af";
+      }
     }
 
     render3DGlobeBase();
     renderQuakesOnMap();
     renderDailyRecordsTable();
     renderDayOverDayComparison();
-    renderConsistencyInspector();
   }
 
   function renderDailyRecordsTable() {
-    const todayKST = kstDate(new Date().toISOString());
-    const todayAttemptCount = Number(runtime.todayAttempts[todayKST]) || 0;
-    const liveRows = runtime.liveState.daily_readings || [];
-    const evalRows = runtime.evalState.daily_readings || [];
     const activeRows = getActiveAdapterState().daily_readings || [];
-
-    const todayRowCount = liveRows.filter((r) => r.record_date === todayKST).length;
-
-    document.getElementById("summary-today-kst").textContent = todayKST;
-    document.getElementById("summary-today-attempts").textContent = `${todayAttemptCount}회`;
-    document.getElementById("summary-today-rows").textContent = `${todayRowCount}건 유지`;
-    document.getElementById("summary-real-records").textContent = String(liveRows.length);
-    document.getElementById("summary-fixture-records").textContent = String(evalRows.length);
-    document.getElementById("summary-total-records").textContent = String(activeRows.length);
-
     const tbody = document.getElementById("daily-records-tbody");
+    if (!tbody) return;
+
     if (activeRows.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-secondary);">저장된 기록 없음</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-secondary);">저장된 기록 없음</td></tr>`;
       return;
     }
 
     tbody.innerHTML = activeRows
       .map((row) => {
         const r = row.reading;
-        const isFixtureRow = row.signal_id === "aleph-demo-index";
-        const typeBadge = isFixtureRow
-          ? `<span style="color:#fbbf24;">Fixture</span>`
-          : `<span style="color:#34d399;">실제(Live)</span>`;
         const srcTimeText = r.source_time !== null ? r.source_time : "null";
         return `
           <tr class="daily-record-row">
             <td class="cell-date"><strong style="color:#38bdf8;">${row.record_date}</strong></td>
-            <td>${typeBadge}</td>
             <td class="cell-value"><strong>${row.normalized_value}</strong></td>
             <td class="cell-unit">${row.unit}</td>
             <td class="cell-time">${srcTimeText}</td>
             <td class="cell-url"><a href="${r.source_url}" target="_blank" rel="noopener noreferrer">${r.source_url}</a></td>
-            <td>${row.update_count || 1}회</td>
           </tr>
         `;
       })
@@ -1514,36 +1442,22 @@
   function renderDayOverDayComparison() {
     const activeState = getActiveAdapterState();
     const rows = activeState.daily_readings || [];
-    const liveRows = runtime.liveState.daily_readings || [];
-    const pill = document.getElementById("card5-status-pill");
 
     const prevValEl = document.getElementById("delta-prev-val");
     const prevDateEl = document.getElementById("delta-prev-date");
     const currValEl = document.getElementById("delta-curr-val");
     const currDateEl = document.getElementById("delta-curr-date");
     const diffValEl = document.getElementById("delta-diff-val");
-    const diffRateEl = document.getElementById("delta-diff-rate");
-    const verifyStatusEl = document.getElementById("delta-verify-status");
     const verifyFormulaEl = document.getElementById("delta-verify-formula");
-
-    if (liveRows.length >= 2) {
-      pill.textContent = `✅ 서로 다른 Asia/Seoul 실제 날짜 기록 ${liveRows.length}건 보존 완료 (T04-C22 충족)`;
-      pill.style.color = "#34d399";
-    } else {
-      pill.textContent = `🕒 실제 Asia/Seoul 날짜 기록: 현재 ${liveRows.length}건 (내일 KST 날짜 변경 후 조회 시 2건 완성)`;
-      pill.style.color = "#fbbf24";
-    }
 
     if (rows.length < 2) {
       const only = rows[0];
       prevValEl.textContent = only ? `${only.normalized_value} ${only.unit}` : "--";
-      prevDateEl.textContent = only ? `record_date: ${only.record_date}` : "--";
+      prevDateEl.textContent = only ? only.record_date : "--";
       currValEl.textContent = "대기 중";
-      currDateEl.textContent = "다음 날짜(D2) 기록 필요";
+      currDateEl.textContent = "2일차 기록 필요";
       diffValEl.textContent = "null";
-      diffRateEl.textContent = "state: insufficient (1일차)";
-      verifyStatusEl.textContent = "2일차 대기";
-      verifyFormulaEl.textContent = "T04-NORMAL-D2 또는 T04-RECOVER-D2 재생 시 +15 pt 즉시 검증";
+      verifyFormulaEl.textContent = "2일차 기록 생성 시 자동 계산";
       return;
     }
 
@@ -1554,114 +1468,31 @@
     const sign = signed > 0 ? "+" : signed < 0 ? "-" : "";
 
     prevValEl.textContent = `${prev.normalized_value} ${prev.unit}`;
-    prevDateEl.textContent = `record_date: ${prev.record_date}`;
+    prevDateEl.textContent = prev.record_date;
 
     currValEl.textContent = `${curr.normalized_value} ${curr.unit}`;
-    currDateEl.textContent = `record_date: ${curr.record_date}`;
+    currDateEl.textContent = curr.record_date;
 
     diffValEl.textContent = `${sign}${magnitude} ${curr.unit}`;
     diffValEl.style.color = signed > 0 ? "#34d399" : signed < 0 ? "#f43f5e" : "#38bdf8";
-    diffRateEl.textContent = `direction: ${activeState.last_comparison.direction} / delta(절대값): ${magnitude}`;
 
     const recalculated = Math.abs(Number(curr.normalized_value) - Number(prev.normalized_value));
-    const isMatched = recalculated === activeState.last_delta;
-    verifyStatusEl.textContent = isMatched ? "✅ 재계산 100% 일치" : "❌ 불일치";
     verifyFormulaEl.textContent = `|${curr.normalized_value} - ${prev.normalized_value}| = ${recalculated} ${curr.unit}`;
-  }
-
-  function renderConsistencyInspector() {
-    const activeState = getActiveAdapterState();
-    const reading = activeState.current_reading;
-    if (!reading) return;
-
-    document.getElementById("raw-response-json").textContent = JSON.stringify(runtime.lastRawExcerpt || {}, null, 2);
-
-    document.getElementById("stored-value-json").textContent = JSON.stringify(
-      {
-        status: activeState.status,
-        current_reading: activeState.current_reading,
-        daily_readings: activeState.daily_readings.map((r) => ({
-          record_id: r.record_id,
-          record_date: r.record_date,
-          normalized_value: r.normalized_value,
-          unit: r.unit,
-          source_time: r.reading.source_time,
-          source_url: r.reading.source_url
-        }))
-      },
-      null,
-      2
-    );
-
-    const domValue = Number(document.getElementById("display-value").textContent);
-    const domUnit = document.getElementById("display-unit").textContent.trim();
-    const domSourceName = document.getElementById("display-source-name").textContent.trim();
-    const domSourceUrl = document.getElementById("display-source-url").textContent.trim();
-    const domSourceTime = document.getElementById("display-source-time").textContent.trim();
-    const domFetchedTime = document.getElementById("display-fetched-time").textContent.trim();
-    const domTimezone = document.getElementById("display-timezone").textContent.trim();
-    const domRecordDate = document.getElementById("display-record-date").textContent.trim();
-
-    const domDailyRows = Array.from(document.querySelectorAll("#daily-records-tbody .daily-record-row")).map((row) => ({
-      record_date: row.querySelector(".cell-date").textContent.trim(),
-      normalized_value: Number(row.querySelector(".cell-value").textContent.trim()),
-      unit: row.querySelector(".cell-unit").textContent.trim(),
-      source_time: row.querySelector(".cell-time").textContent.trim(),
-      source_url: row.querySelector(".cell-url").textContent.trim()
-    }));
-
-    document.getElementById("screen-value-json").textContent = JSON.stringify(
-      {
-        domRenderedReading: {
-          normalized_value: domValue,
-          unit: domUnit,
-          source_name: domSourceName,
-          source_url: domSourceUrl,
-          source_time: domSourceTime,
-          fetched_at: domFetchedTime,
-          record_timezone: domTimezone,
-          record_date: domRecordDate
-        },
-        domRenderedDailyRecords: domDailyRows,
-        domRenderedStatus: {
-          freshness: document.getElementById("badge-freshness").textContent.trim(),
-          error_code: document.getElementById("badge-error-state").textContent.trim()
-        }
-      },
-      null,
-      2
-    );
   }
 
   // ============================================================================
   // 9. 슬라이드 드로어 제어 및 자동 갱신 타이머
   // ============================================================================
-  function openDrawerTab(tabId) {
+  function toggleDrawer() {
     const drawer = document.getElementById("side-drawer");
-    if (runtime.isDrawerOpen && runtime.activeDrawerTab === tabId) {
-      closeDrawer();
-      return;
-    }
-    runtime.activeDrawerTab = tabId;
-    runtime.isDrawerOpen = true;
-    drawer.classList.add("open");
-
-    document.querySelectorAll(".rail-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.getAttribute("data-drawer-tab") === tabId);
-    });
-    document.querySelectorAll(".drawer-tab-btn").forEach((btn) => {
-      btn.classList.toggle("active", btn.getAttribute("data-drawer-tab") === tabId);
-    });
-    document.querySelectorAll(".drawer-pane").forEach((pane) => {
-      pane.classList.toggle("active", pane.id === tabId);
-    });
+    runtime.isDrawerOpen = !runtime.isDrawerOpen;
+    drawer.classList.toggle("open", runtime.isDrawerOpen);
   }
 
   function closeDrawer() {
     const drawer = document.getElementById("side-drawer");
     runtime.isDrawerOpen = false;
     drawer.classList.remove("open");
-    document.querySelectorAll(".rail-btn").forEach((btn) => btn.classList.remove("active"));
   }
 
   function startAutoRefreshLoop() {
@@ -1683,27 +1514,10 @@
   }
 
   function bindEvents() {
-    document.querySelectorAll(".rail-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        openDrawerTab(btn.getAttribute("data-drawer-tab"));
-      });
-    });
-
-    document.querySelectorAll(".drawer-tab-btn").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const tabId = btn.getAttribute("data-drawer-tab");
-        runtime.activeDrawerTab = tabId;
-        document.querySelectorAll(".rail-btn").forEach((b) => {
-          b.classList.toggle("active", b.getAttribute("data-drawer-tab") === tabId);
-        });
-        document.querySelectorAll(".drawer-tab-btn").forEach((b) => {
-          b.classList.toggle("active", b.getAttribute("data-drawer-tab") === tabId);
-        });
-        document.querySelectorAll(".drawer-pane").forEach((pane) => {
-          pane.classList.toggle("active", pane.id === tabId);
-        });
-      });
-    });
+    const btnToggleDrawer = document.getElementById("btn-toggle-drawer");
+    if (btnToggleDrawer) {
+      btnToggleDrawer.addEventListener("click", toggleDrawer);
+    }
 
     document.getElementById("btn-close-drawer").addEventListener("click", closeDrawer);
     document.addEventListener("keydown", (e) => {
@@ -1795,16 +1609,24 @@
         fetchLiveUSGSData({ isAuto: false });
       });
     }
-    document.getElementById("btn-retry-live").addEventListener("click", () => {
-      fetchLiveUSGSData({ isAuto: false });
-    });
-    document.getElementById("btn-reset-eval").addEventListener("click", handleResetEvaluation);
-    document.getElementById("btn-clear-fixtures").addEventListener("click", handleResetEvaluation);
+    const btnRetryLive = document.getElementById("btn-retry-live");
+    if (btnRetryLive) {
+      btnRetryLive.addEventListener("click", () => {
+        fetchLiveUSGSData({ isAuto: false });
+      });
+    }
+    const btnResetEval = document.getElementById("btn-reset-eval");
+    if (btnResetEval) {
+      btnResetEval.addEventListener("click", handleResetEvaluation);
+    }
 
     // 상단 다시 시도 버튼 (T04-RECOVER-D2 재생)
-    document.getElementById("btn-replay-recovery").addEventListener("click", () => {
-      executeOfficialFixture("T04-RECOVER-D2");
-    });
+    const btnReplayRecovery = document.getElementById("btn-replay-recovery");
+    if (btnReplayRecovery) {
+      btnReplayRecovery.addEventListener("click", () => {
+        executeOfficialFixture("T04-RECOVER-D2");
+      });
+    }
 
     // 공식 9개 개별 Fixture 버튼
     document.querySelectorAll(".fixture-btn").forEach((btn) => {
@@ -1812,26 +1634,6 @@
         const fid = btn.getAttribute("data-fixture-id");
         if (fid) executeOfficialFixture(fid);
       });
-    });
-
-    // 시퀀스 일괄 재생 버튼
-    document.getElementById("btn-seq-success").addEventListener("click", runSuccessSequence);
-    document.getElementById("btn-seq-recover").addEventListener("click", runRecoverySequence);
-
-    // 같은 날 재조회 버튼 (T04-C20)
-    document.getElementById("btn-test-sameday").addEventListener("click", () => {
-      fetchLiveUSGSData({ isAuto: false });
-    });
-
-    // JSON 복사
-    document.getElementById("btn-export-records").addEventListener("click", async () => {
-      const jsonStr = JSON.stringify(getActiveAdapterState().daily_readings, null, 2);
-      try {
-        await navigator.clipboard.writeText(jsonStr);
-        alert("일별 기록 JSON이 클립보드에 복사되었습니다.");
-      } catch (e) {
-        prompt("아래 JSON을 복사하세요:", jsonStr);
-      }
     });
   }
 
