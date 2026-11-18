@@ -651,6 +651,7 @@
     const badgeFreshness = document.getElementById("badge-freshness");
     const badgeError = document.getElementById("badge-error-state");
     const inlineFreshness = document.getElementById("inline-freshness-label");
+    const btnTopFetch = document.getElementById("btn-fetch-live");
     const btnTopRecovery = document.getElementById("btn-replay-recovery");
 
     appStage.classList.toggle("is-stale", isStale);
@@ -662,6 +663,7 @@
       badgeError.className = "error-code-badge";
       inlineFreshness.textContent = "최신 정상값";
       inlineFreshness.style.color = "#34d399";
+      if (btnTopFetch) btnTopFetch.textContent = "🔄 실시간 조회";
       if (btnTopRecovery) btnTopRecovery.style.display = "none";
     } else {
       const faultInfo = SYNTHETIC_FAULT_FIXTURES[state.errorState];
@@ -669,13 +671,14 @@
       badgeError.className = "error-code-badge has-error";
       inlineFreshness.textContent = "STALE (마지막 정상값 보존 중)";
       inlineFreshness.style.color = "#fbbf24";
+      if (btnTopFetch) btnTopFetch.textContent = "🔁 재시도 (실시간 조회)";
       if (btnTopRecovery) btnTopRecovery.style.display = "inline-flex";
     }
 
     if (normal) {
       document.getElementById("display-value").textContent = String(normal.value);
       document.getElementById("display-unit").textContent = normal.unit;
-      document.getElementById("display-source-name").textContent = "USGS";
+      document.getElementById("display-source-name").textContent = normal.sourceName;
       const urlEl = document.getElementById("display-source-url");
       urlEl.textContent = normal.sourceUrl;
       urlEl.href = normal.sourceUrl;
@@ -725,7 +728,7 @@
 
     const tbody = document.getElementById("daily-records-tbody");
     if (state.dailyRecords.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-secondary);">저장된 기록 없음</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color: var(--text-secondary);">저장된 기록 없음</td></tr>`;
       return;
     }
 
@@ -733,12 +736,13 @@
       .map((r) => {
         const typeText = r.isFixture ? `<span style="color:#fbbf24;">Fixture</span>` : `<span style="color:#34d399;">실제</span>`;
         return `
-          <tr>
-            <td><strong style="color:#38bdf8;">${r.dateKST}</strong></td>
+          <tr class="daily-record-row">
+            <td class="cell-date"><strong style="color:#38bdf8;">${r.dateKST}</strong></td>
             <td>${typeText}</td>
-            <td><strong>${r.value}</strong></td>
-            <td>${r.unit}</td>
-            <td>${r.sourceTimeKST.replace(" KST", "")}</td>
+            <td class="cell-value"><strong>${r.value}</strong></td>
+            <td class="cell-unit">${r.unit}</td>
+            <td class="cell-time">${r.sourceTimeKST}</td>
+            <td class="cell-url"><a href="${r.sourceUrl}" target="_blank" rel="noopener noreferrer">${r.sourceUrl}</a></td>
             <td>${r.sameDayUpdateCount || 1}회</td>
           </tr>
         `;
@@ -839,6 +843,14 @@
     const domSourceTime = document.getElementById("display-source-time").textContent.trim();
     const domFetchedTime = document.getElementById("display-fetched-time").textContent.trim();
 
+    const domDailyRows = Array.from(document.querySelectorAll("#daily-records-tbody .daily-record-row")).map((row) => ({
+      dateKST: row.querySelector(".cell-date").textContent.trim(),
+      value: Number(row.querySelector(".cell-value").textContent.trim()),
+      unit: row.querySelector(".cell-unit").textContent.trim(),
+      sourceTimeKST: row.querySelector(".cell-time").textContent.trim(),
+      sourceUrl: row.querySelector(".cell-url").textContent.trim()
+    }));
+
     document.getElementById("screen-value-json").textContent = JSON.stringify(
       {
         domRendered: {
@@ -848,6 +860,7 @@
           sourceTimeKST: domSourceTime,
           fetchedTimeKST: domFetchedTime
         },
+        domRenderedDailyRecords: domDailyRows,
         freshnessState: state.freshness,
         faultState: state.errorState
       },
