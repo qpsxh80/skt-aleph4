@@ -76,6 +76,12 @@ a:hover {
   background: radial-gradient(ellipse at center, #081529 0%, #040914 100%);
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65), inset 0 0 50px rgba(6, 182, 212, 0.08);
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
+  cursor: grab;
+  user-select: none;
+}
+
+#world-map-svg:active {
+  cursor: grabbing;
 }
 
 .app-stage.is-stale #world-map-svg {
@@ -83,30 +89,100 @@ a:hover {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65), inset 0 0 60px rgba(245, 158, 11, 0.16);
 }
 
+/* 우측 하단 지도 줌 컨트롤 */
+.map-zoom-controls {
+  position: absolute;
+  right: 38px;
+  bottom: 82px;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-subtle);
+  padding: 5px 8px;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+}
+
+.zoom-level-indicator {
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: #38bdf8;
+  min-width: 38px;
+  text-align: center;
+}
+
+.zoom-btn {
+  cursor: pointer;
+  background: rgba(20, 34, 61, 0.9);
+  border: 1px solid var(--border-normal);
+  color: var(--text-primary);
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+}
+
+.zoom-btn.zoom-reset {
+  width: auto;
+  padding: 0 8px;
+  font-size: 0.72rem;
+}
+
+.zoom-btn:hover {
+  border-color: var(--accent-cyan);
+  color: #38bdf8;
+  background: #1a2c4e;
+}
+
 /* SVG 지도 요소 */
 .map-grid-line {
   stroke: rgba(56, 189, 248, 0.07);
   stroke-width: 0.7;
+  vector-effect: non-scaling-stroke;
 }
 
 .map-equator-line {
   stroke: rgba(56, 189, 248, 0.18);
   stroke-width: 0.9;
   stroke-dasharray: 4 4;
+  vector-effect: non-scaling-stroke;
 }
 
 .map-continent {
-  fill: #102138;
-  stroke: #244772;
-  stroke-width: 1;
+  fill: #11233b;
+  stroke: #2c5588;
+  stroke-width: 0.9;
   stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  transition: fill 0.2s;
+}
+
+.map-continent:hover {
+  fill: #162e4d;
 }
 
 .map-tectonic {
   fill: none;
-  stroke: rgba(244, 63, 94, 0.18);
+  stroke: rgba(244, 63, 94, 0.22);
   stroke-width: 1.1;
   stroke-dasharray: 3 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.map-geo-label {
+  pointer-events: none;
+  font-family: var(--font-mono);
+  letter-spacing: 0.14em;
+  text-anchor: middle;
 }
 
 .quake-dot {

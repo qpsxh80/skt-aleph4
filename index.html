@@ -278,7 +278,7 @@
       </div>
     </header>
 
-    <!-- 중앙 풀스크린 내장 관제형 세계지도 (새로운 데이터 유입 시에만 해당 진앙지가 반짝임) -->
+    <!-- 중앙 풀스크린 내장 관제형 세계지도 (새로운 데이터 유입 시에만 해당 진앙지가 반짝임 + 마우스 휠 확대/축소) -->
     <div class="map-canvas-wrap" id="map-viewport">
       <svg id="world-map-svg" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="전 세계 지진 실시간 관제 세계지도">
         <defs>
@@ -288,12 +288,23 @@
             <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
           </radialGradient>
         </defs>
-        <g id="map-layer-grid"></g>
-        <g id="map-layer-continents"></g>
-        <g id="map-layer-tectonic"></g>
-        <g id="map-layer-quakes"></g>
-        <g id="map-layer-beacon"></g>
+        <g id="map-zoom-group">
+          <g id="map-layer-grid"></g>
+          <g id="map-layer-continents"></g>
+          <g id="map-layer-tectonic"></g>
+          <g id="map-layer-labels"></g>
+          <g id="map-layer-quakes"></g>
+          <g id="map-layer-beacon"></g>
+        </g>
       </svg>
+
+      <!-- 우측 하단 마우스 휠 확대/축소 컨트롤 -->
+      <div class="map-zoom-controls" aria-label="지도 확대 축소 컨트롤">
+        <span class="zoom-level-indicator" id="zoom-level-text" title="마우스 휠로 확대/축소, 드래그로 이동">1.0x</span>
+        <button class="zoom-btn" id="btn-zoom-in" type="button" title="지도 확대 (+)">＋</button>
+        <button class="zoom-btn" id="btn-zoom-out" type="button" title="지도 축소 (-)">－</button>
+        <button class="zoom-btn zoom-reset" id="btn-zoom-reset" type="button" title="지도 배율 초기화">초기화</button>
+      </div>
     </div>
 
     <!-- 하단 미니멀 HUD 바: 출처(T04-C06), 출처 시각(T04-C07), 조회 시각(T04-C08), 기준 시간대(T04-C09), 최신 진앙지 알림 -->

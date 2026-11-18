@@ -98,7 +98,14 @@
     dailyRecords: [],
     todayAttempts: {},
     activeDrawerTab: "tab-control",
-    isDrawerOpen: false
+    isDrawerOpen: false,
+    // 지도 확대/이동(Zoom & Pan) 상태
+    zoomScale: 1,
+    panX: 0,
+    panY: 0,
+    isDraggingMap: false,
+    dragStartX: 0,
+    dragStartY: 0
   };
 
   // ============================================================================
@@ -167,6 +174,7 @@
     const gridLayer = document.getElementById("map-layer-grid");
     const continentLayer = document.getElementById("map-layer-continents");
     const tectonicLayer = document.getElementById("map-layer-tectonic");
+    const labelsLayer = document.getElementById("map-layer-labels");
     if (!gridLayer || !continentLayer || !tectonicLayer) return;
 
     let gridHtml = "";
@@ -183,7 +191,7 @@
     }
     gridLayer.innerHTML = gridHtml;
 
-    const mapData = window.WORLD_MAP_DATA || { continents: [], tectonicBelts: [] };
+    const mapData = window.WORLD_MAP_DATA || { continents: [], tectonicBelts: [], mapLabels: [] };
     let continentHtml = "";
     mapData.continents.forEach((cont) => {
       const points = cont.coords
@@ -207,6 +215,59 @@
       tectonicHtml += `<polyline points="${points}" class="map-tectonic" />`;
     });
     tectonicLayer.innerHTML = tectonicHtml;
+
+    if (labelsLayer && Array.isArray(mapData.mapLabels)) {
+      let labelsHtml = "";
+      mapData.mapLabels.forEach((lbl) => {
+        const { x, y } = lonLatToXY(lbl.lon, lbl.lat);
+        let fill = "rgba(56, 189, 248, 0.16)";
+        if (lbl.type === "fault") fill = "rgba(244, 63, 94, 0.28)";
+        if (lbl.type === "country") fill = "rgba(148, 163, 184, 0.38)";
+        labelsHtml += `<text x="${x}" y="${y}" fill="${fill}" font-size="${lbl.size || 8}" font-weight="700" class="map-geo-label">${lbl.text}</text>`;
+      });
+      labelsLayer.innerHTML = labelsHtml;
+    }
+  }
+
+  function clampPan(panX, panY, scale) {
+    const minX = 1000 * (1 - scale);
+    const minY = 500 * (1 - scale);
+    return {
+      x: Math.max(minX, Math.min(0, panX)),
+      y: Math.max(minY, Math.min(0, panY))
+    };
+  }
+
+  function applyMapZoomTransform() {
+    const zoomGroup = document.getElementById("map-zoom-group");
+    const zoomText = document.getElementById("zoom-level-text");
+    const clamped = clampPan(state.panX, state.panY, state.zoomScale);
+    state.panX = clamped.x;
+    state.panY = clamped.y;
+
+    if (zoomGroup) {
+      zoomGroup.setAttribute(
+        "transform",
+        `translate(${state.panX.toFixed(2)}, ${state.panY.toFixed(2)}) scale(${state.zoomScale.toFixed(3)})`
+      );
+    }
+    if (zoomText) {
+      zoomText.textContent = `${state.zoomScale.toFixed(1)}x`;
+    }
+  }
+
+  function zoomMapAtPoint(newScale, focalSvgX, focalSvgY) {
+    const clampedScale = Math.max(1.0, Math.min(10.0, newScale));
+    const oldScale = state.zoomScale;
+    if (Math.abs(clampedScale - oldScale) < 0.001) return;
+
+    const ratio = clampedScale / oldScale;
+    state.panX = focalSvgX - (focalSvgX - state.panX) * ratio;
+    state.panY = focalSvgY - (focalSvgY - state.panY) * ratio;
+    state.zoomScale = clampedScale;
+
+    applyMapZoomTransform();
+    renderQuakesOnMap();
   }
 
   /**
@@ -220,6 +281,7 @@
 
     const isStale = state.freshness === "stale";
     const quakes = (state.lastNormal && state.lastNormal.quakes) || [];
+    const invScale = 1 / Math.pow(state.zoomScale, 0.7);
 
     if (quakes.length === 0) {
       quakesLayer.innerHTML = "";
@@ -227,37 +289,38 @@
       return;
     }
 
-    // 1) 최근 24시간 지진 점 렌더링 (마우스 호버 시 툴팁만 제공, 클릭 이동 없음)
+    // 1) 최근 24시간 지진 점 렌더링 (확대 시 점 크기가 적절히 작아져 겹침 해소)
     let dotsHtml = "";
     for (let i = quakes.length - 1; i >= 1; i--) {
       const q = quakes[i];
       const { x, y } = lonLatToXY(q.lon, q.lat);
       const mag = Number(q.mag) || 0;
-      const radius = Math.max(2.0, Math.min(7.5, 1.8 + mag * 1.1));
+      const baseRadius = Math.max(2.0, Math.min(7.5, 1.8 + mag * 1.1));
+      const radius = baseRadius * invScale;
 
-      let fill = "rgba(56, 189, 248, 0.48)";
-      let stroke = "rgba(56, 189, 248, 0.85)";
+      let fill = "rgba(56, 189, 248, 0.52)";
+      let stroke = "rgba(56, 189, 248, 0.9)";
       if (mag >= 4.5) {
-        fill = "rgba(244, 63, 94, 0.65)";
+        fill = "rgba(244, 63, 94, 0.68)";
         stroke = "#fda4af";
       } else if (mag >= 2.5) {
-        fill = "rgba(251, 191, 36, 0.58)";
+        fill = "rgba(251, 191, 36, 0.62)";
         stroke = "#fde68a";
       }
 
       if (isStale) {
-        fill = "rgba(245, 158, 11, 0.4)";
-        stroke = "rgba(251, 191, 36, 0.75)";
+        fill = "rgba(245, 158, 11, 0.42)";
+        stroke = "rgba(251, 191, 36, 0.78)";
       }
 
       dotsHtml += `
         <circle
           cx="${x}"
           cy="${y}"
-          r="${radius.toFixed(1)}"
+          r="${radius.toFixed(2)}"
           fill="${fill}"
           stroke="${stroke}"
-          stroke-width="0.8"
+          stroke-width="${(0.8 * invScale).toFixed(2)}"
           class="quake-dot"
         >
           <title>M${mag.toFixed(1)} — ${q.place} (${formatKSTFull(q.time)})</title>
@@ -269,23 +332,25 @@
     // 2) 오직 가장 최신 유입된 데이터(quakes[0]) 좌표에만 반짝임 비콘 표시
     const newestQuake = quakes[0];
     const { x: bx, y: by } = lonLatToXY(newestQuake.lon, newestQuake.lat);
-    const labelX = bx > 750 ? bx - 190 : bx + 14;
-    const labelY = by < 50 ? by + 22 : by - 12;
+    const labelOffsetX = (bx > 750 ? -190 : 14) * invScale;
+    const labelOffsetY = (by < 50 ? 22 : -12) * invScale;
     const statusPrefix = isStale ? "[STALE 유지] " : "[NEW 감지] ";
 
     beaconLayer.innerHTML = `
-      <line x1="${bx}" y1="0" x2="${bx}" y2="500" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="0.9" stroke-dasharray="3 4" />
-      <line x1="0" y1="${by}" x2="1000" y2="${by}" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="0.9" stroke-dasharray="3 4" />
+      <line x1="${bx}" y1="0" x2="${bx}" y2="500" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="${(0.9 * invScale).toFixed(2)}" stroke-dasharray="${3 * invScale} ${4 * invScale}" />
+      <line x1="0" y1="${by}" x2="1000" y2="${by}" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="${(0.9 * invScale).toFixed(2)}" stroke-dasharray="${3 * invScale} ${4 * invScale}" />
 
-      <circle cx="${bx}" cy="${by}" r="28" fill="url(#beaconGlow)" />
-      <circle cx="${bx}" cy="${by}" r="6" class="latest-pulse-ring" />
-      <circle cx="${bx}" cy="${by}" r="6" class="latest-pulse-ring delay-1" />
-      <circle cx="${bx}" cy="${by}" r="6" class="latest-pulse-ring delay-2" />
-      <circle cx="${bx}" cy="${by}" r="6" class="latest-core-beacon">
-        <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
-      </circle>
+      <g transform="translate(${bx}, ${by}) scale(${invScale.toFixed(3)})">
+        <circle cx="0" cy="0" r="28" fill="url(#beaconGlow)" />
+        <circle cx="0" cy="0" r="6" class="latest-pulse-ring" />
+        <circle cx="0" cy="0" r="6" class="latest-pulse-ring delay-1" />
+        <circle cx="0" cy="0" r="6" class="latest-pulse-ring delay-2" />
+        <circle cx="0" cy="0" r="6" class="latest-core-beacon">
+          <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
+        </circle>
+      </g>
 
-      <g transform="translate(${labelX}, ${labelY})">
+      <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)}) scale(${invScale.toFixed(3)})">
         <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(6, 11, 22, 0.88)" stroke="${isStale ? '#f59e0b' : '#22d3ee'}" stroke-width="1" />
         <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#38bdf8'}" font-size="9" font-weight="bold" font-family="sans-serif">
           ${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} 진앙지
@@ -933,6 +998,70 @@
     document.addEventListener("keydown", (e) => {
       if (e.key === "Escape" && state.isDrawerOpen) closeDrawer();
     });
+
+    // 세계지도 마우스 휠 확대/축소 & 드래그 패닝 이벤트
+    const svgEl = document.getElementById("world-map-svg");
+    if (svgEl) {
+      svgEl.addEventListener(
+        "wheel",
+        (e) => {
+          e.preventDefault();
+          const rect = svgEl.getBoundingClientRect();
+          const focalSvgX = ((e.clientX - rect.left) / rect.width) * 1000;
+          const focalSvgY = ((e.clientY - rect.top) / rect.height) * 500;
+          const factor = e.deltaY < 0 ? 1.22 : 1 / 1.22;
+          zoomMapAtPoint(state.zoomScale * factor, focalSvgX, focalSvgY);
+        },
+        { passive: false }
+      );
+
+      svgEl.addEventListener("mousedown", (e) => {
+        if (e.button !== 0) return;
+        state.isDraggingMap = true;
+        state.dragStartX = e.clientX;
+        state.dragStartY = e.clientY;
+      });
+
+      window.addEventListener("mousemove", (e) => {
+        if (!state.isDraggingMap) return;
+        const rect = svgEl.getBoundingClientRect();
+        const dxSvg = ((e.clientX - state.dragStartX) / rect.width) * 1000;
+        const dySvg = ((e.clientY - state.dragStartY) / rect.height) * 500;
+        state.dragStartX = e.clientX;
+        state.dragStartY = e.clientY;
+        state.panX += dxSvg;
+        state.panY += dySvg;
+        applyMapZoomTransform();
+      });
+
+      window.addEventListener("mouseup", () => {
+        state.isDraggingMap = false;
+      });
+    }
+
+    // 우측 하단 줌 버튼 (+, -, 초기화)
+    const btnZoomIn = document.getElementById("btn-zoom-in");
+    const btnZoomOut = document.getElementById("btn-zoom-out");
+    const btnZoomReset = document.getElementById("btn-zoom-reset");
+    if (btnZoomIn) {
+      btnZoomIn.addEventListener("click", () => {
+        zoomMapAtPoint(state.zoomScale * 1.35, 500, 250);
+      });
+    }
+    if (btnZoomOut) {
+      btnZoomOut.addEventListener("click", () => {
+        zoomMapAtPoint(state.zoomScale / 1.35, 500, 250);
+      });
+    }
+    if (btnZoomReset) {
+      btnZoomReset.addEventListener("click", () => {
+        state.zoomScale = 1;
+        state.panX = 0;
+        state.panY = 0;
+        applyMapZoomTransform();
+        renderQuakesOnMap();
+      });
+    }
 
     // 실시간 조회 / 재시도 / 복구 Fixture
     document.getElementById("btn-fetch-live").addEventListener("click", () => {
