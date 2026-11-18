@@ -712,9 +712,9 @@
       mapData.mapLabels.forEach((lbl) => {
         const p = project3D(lbl.lon, lbl.lat);
         if (p.z < 0.18) return;
-        let fill = "rgba(56, 189, 248, 0.18)";
-        if (lbl.type === "fault") fill = "rgba(244, 63, 94, 0.3)";
-        if (lbl.type === "country") fill = "rgba(148, 163, 184, 0.42)";
+        let fill = "rgba(30, 64, 175, 0.25)";
+        if (lbl.type === "fault") fill = "rgba(225, 29, 72, 0.35)";
+        if (lbl.type === "country") fill = "rgba(71, 85, 105, 0.55)";
         labelsHtml += `<text x="${p.x}" y="${p.y}" fill="${fill}" font-size="${lbl.size || 8}" font-weight="700" class="map-geo-label">${lbl.text}</text>`;
       });
       labelsLayer.innerHTML = labelsHtml;
@@ -1025,11 +1025,11 @@
     if (calloutLayer) {
       calloutLayer.innerHTML = `
         <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)})" pointer-events="none">
-          <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(6, 11, 22, 0.88)" stroke="${isStale ? '#f59e0b' : '#ff3b4e'}" stroke-width="1" />
-          <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#ff4d6d'}" font-size="9" font-weight="bold" font-family="sans-serif">
+          <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(255, 255, 255, 0.94)" stroke="${isStale ? '#d97706' : '#e11d48'}" stroke-width="1.1" />
+          <text x="7" y="-1" fill="${isStale ? '#b45309' : '#e11d48'}" font-size="9" font-weight="bold" font-family="sans-serif">
             ${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} 진앙지
           </text>
-          <text x="7" y="10" fill="#cbd5e1" font-size="8" font-family="monospace">
+          <text x="7" y="10" fill="#334155" font-size="8" font-family="monospace">
             반경 ~${newestImpactKm}km (${Number(newestQuake.lat).toFixed(1)}°N, ${Number(newestQuake.lon).toFixed(1)}°E)
           </text>
         </g>
