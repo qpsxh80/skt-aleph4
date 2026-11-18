@@ -217,19 +217,19 @@ a:hover {
   filter: drop-shadow(0 0 10px #ff182c) brightness(1.35);
 }
 
-/* 클릭한 과거/개별 지진 상세 정보 플로팅 카드 (다크 슬레이트 네이비 + 붉은 포인트 테마) */
+/* 클릭한 과거/개별 지진 상세 정보 플로팅 카드 (클릭한 점 근처에 표시) */
 .selected-quake-card {
   position: absolute;
   top: 0;
   left: 0;
   z-index: 25;
-  width: 268px;
-  background: linear-gradient(145deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95));
+  width: 265px;
+  background: rgba(8, 15, 30, 0.94);
   backdrop-filter: blur(14px);
-  border: 1px solid rgba(244, 63, 94, 0.6);
+  border: 1px solid rgba(56, 189, 248, 0.65);
   border-radius: 10px;
-  padding: 11px 13px;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), 0 0 16px rgba(225, 29, 72, 0.2);
+  padding: 10px 12px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.7), 0 0 16px rgba(56, 189, 248, 0.22);
   pointer-events: auto;
 }
 
@@ -247,21 +247,21 @@ a:hover {
   font-weight: 800;
   padding: 2px 8px;
   border-radius: 6px;
-  background: #ff182c;
-  color: #ffffff;
-  border: 1px solid #fb7185;
+  background: rgba(56, 189, 248, 0.2);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.5);
 }
 
 .sq-type {
   font-size: 0.73rem;
-  color: #cbd5e1;
+  color: var(--text-secondary);
   flex: 1;
 }
 
 .sq-close {
   background: transparent;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 2px 5px;
@@ -274,7 +274,7 @@ a:hover {
 .sq-place {
   font-size: 0.9rem;
   font-weight: 700;
-  color: #f8fafc;
+  color: var(--text-primary);
   margin-bottom: 9px;
   line-height: 1.35;
 }
@@ -284,23 +284,23 @@ a:hover {
   grid-template-columns: 1fr 1fr;
   gap: 6px 10px;
   font-size: 0.74rem;
-  color: #94a3b8;
-  background: rgba(6, 11, 22, 0.7);
+  color: var(--text-secondary);
+  background: rgba(4, 9, 20, 0.65);
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(56, 189, 248, 0.2);
+  border: 1px solid rgba(30, 50, 86, 0.7);
 }
 
 .sq-meta-grid strong {
-  color: #f1f5f9;
+  color: #e2e8f0;
   font-family: var(--font-mono);
 }
 
 /* 오직 새로운 지진 유입 시에만 반짝이는 진앙지 레이더 비콘 */
 .latest-pulse-ring {
   fill: none;
-  stroke: #ff182c;
-  stroke-width: 2.2;
+  stroke: #22d3ee;
+  stroke-width: 1.8;
   transform-box: fill-box;
   transform-origin: center;
   animation: radar-expand 2.1s cubic-bezier(0.16, 1, 0.3, 1) infinite;
@@ -308,16 +308,16 @@ a:hover {
 
 .latest-pulse-ring.delay-1 {
   animation-delay: 0.7s;
-  stroke: #ff3b4e;
+  stroke: #f43f5e;
 }
 
 .latest-pulse-ring.delay-2 {
   animation-delay: 1.4s;
-  stroke: #ff001e;
+  stroke: #38bdf8;
 }
 
 .latest-core-beacon {
-  fill: #ff182c;
+  fill: #f43f5e;
   stroke: #ffffff;
   stroke-width: 0.45;
   animation: core-blink 0.8s ease-in-out infinite alternate;
@@ -334,12 +334,12 @@ a:hover {
 
 @keyframes radar-expand {
   0% {
-    r: 1px;
-    opacity: 0.98;
-    stroke-width: 2.2px;
+    r: 1.5px;
+    opacity: 0.95;
+    stroke-width: 2px;
   }
   100% {
-    r: var(--pulse-max-r, 48px);
+    r: 28px;
     opacity: 0;
     stroke-width: 0.4px;
   }
@@ -347,10 +347,10 @@ a:hover {
 
 @keyframes core-blink {
   0% {
-    filter: drop-shadow(0 0 4px #ff182c);
+    filter: drop-shadow(0 0 4px #f43f5e);
   }
   100% {
-    filter: drop-shadow(0 0 12px #ff4d6d) brightness(1.35);
+    filter: drop-shadow(0 0 12px #22d3ee) brightness(1.35);
   }
 }
 

@@ -867,15 +867,24 @@
     const q = quakes[idx];
     const mag = Number(q.mag) || 0;
     const impactKm = computeImpactRadiusKm(mag);
-    const redStyle = getPureRedStyle(mag, false, false);
     const magBadge = document.getElementById("sq-mag-badge");
     const typeLabel = document.getElementById("sq-type-label");
     const impactEl = document.getElementById("sq-impact");
 
     magBadge.textContent = `M ${mag.toFixed(1)}`;
-    magBadge.style.background = redStyle.dotFill;
-    magBadge.style.color = "#ffffff";
-    magBadge.style.borderColor = redStyle.dotStroke;
+    if (mag >= 4.5) {
+      magBadge.style.background = "rgba(244, 63, 94, 0.25)";
+      magBadge.style.color = "#fda4af";
+      magBadge.style.borderColor = "rgba(244, 63, 94, 0.6)";
+    } else if (mag >= 2.5) {
+      magBadge.style.background = "rgba(251, 191, 36, 0.22)";
+      magBadge.style.color = "#fde68a";
+      magBadge.style.borderColor = "rgba(251, 191, 36, 0.55)";
+    } else {
+      magBadge.style.background = "rgba(56, 189, 248, 0.2)";
+      magBadge.style.color = "#38bdf8";
+      magBadge.style.borderColor = "rgba(56, 189, 248, 0.5)";
+    }
 
     typeLabel.textContent = idx === 0 ? "최신 감지 지진" : `이전 지진 기록 (#${idx + 1})`;
     document.getElementById("sq-place").textContent = q.place;
@@ -1010,7 +1019,6 @@
     const newestImpactKm = computeImpactRadiusKm(newestMag);
     const isNewestSelected = runtime.selectedQuakeIndex === 0;
     const newestRedStyle = getPureRedStyle(newestMag, isStale, isNewestSelected);
-    const pulseMaxR = Math.round((20 + Math.pow(newestMag, 1.55) * 15) * scaleFactor);
 
     const { x: bx, y: by, z: bz } = newestProj;
     const beaconSurfaceTransform = getSurfaceTransform(bx, by, bz);
@@ -1019,7 +1027,8 @@
     const statusPrefix = isStale ? "[STALE 유지] " : "[NEW 감지] ";
 
     beaconLayer.innerHTML = `
-      <g transform="${beaconSurfaceTransform}" style="--pulse-max-r: ${pulseMaxR}px;">
+      <g transform="${beaconSurfaceTransform}">
+        <circle cx="0" cy="0" r="18" fill="url(#beaconGlow)" pointer-events="none" />
         ${
           isNewestSelected
             ? `<circle
@@ -1034,27 +1043,27 @@
               />`
             : ""
         }
-        <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />
-        <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-1" pointer-events="none" />
-        <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-2" pointer-events="none" />
+        <circle cx="0" cy="0" r="1.5" class="latest-pulse-ring" pointer-events="none" />
+        <circle cx="0" cy="0" r="1.5" class="latest-pulse-ring delay-1" pointer-events="none" />
+        <circle cx="0" cy="0" r="1.5" class="latest-pulse-ring delay-2" pointer-events="none" />
         <circle cx="0" cy="0" r="${newestDotRadius.toFixed(2)}" class="latest-core-beacon" pointer-events="none">
-          <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} (영향 반경 약 ${newestImpactKm}km) — ${newestQuake.place}</title>
+          <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
         </circle>
       </g>
       <circle cx="${bx.toFixed(1)}" cy="${by.toFixed(1)}" r="10" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;">
-        <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} (영향 반경 약 ${newestImpactKm}km) — ${newestQuake.place}</title>
+        <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
       </circle>
     `;
 
     if (calloutLayer) {
       calloutLayer.innerHTML = `
         <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)})" pointer-events="none">
-          <rect x="0" y="-13" width="182" height="30" rx="5" fill="rgba(15, 23, 42, 0.92)" stroke="${isStale ? '#f59e0b' : '#fb7185'}" stroke-width="1.1" />
-          <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#fda4af'}" font-size="9" font-weight="bold" font-family="sans-serif">
+          <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(6, 11, 22, 0.88)" stroke="${isStale ? '#f59e0b' : '#22d3ee'}" stroke-width="1" />
+          <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#38bdf8'}" font-size="9" font-weight="bold" font-family="sans-serif">
             ${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} 진앙지
           </text>
-          <text x="7" y="10" fill="#e2e8f0" font-size="8" font-family="monospace">
-            반경 ~${newestImpactKm}km (${Number(newestQuake.lat).toFixed(1)}°N, ${Number(newestQuake.lon).toFixed(1)}°E)
+          <text x="7" y="10" fill="#cbd5e1" font-size="8" font-family="monospace">
+            ${Number(newestQuake.lat).toFixed(2)}°N, ${Number(newestQuake.lon).toFixed(2)}°E
           </text>
         </g>
       `;
@@ -1088,8 +1097,7 @@
     const beaconLayer = document.getElementById("map-layer-beacon");
     if (!beaconLayer) return;
 
-    const newestMag = Math.max(0.5, Number(newest.mag) || 1.0);
-    const maxBurstR = Math.round(28 + Math.pow(newestMag, 1.6) * 18);
+    const maxBurstR = 32;
     const { x, y, z, visible } = project3D(newest.lon, newest.lat);
     if (!visible) return;
 
