@@ -1121,10 +1121,32 @@
         : null;
       const recordDate = kstDate(fetchedIso);
 
+      // 방식 1-A: 한국 날짜(Asia/Seoul recordDate, 00:00:00 KST 이후)에 발생한 지진만 필터링하여
+      // 상단 표시 숫자와 3D 지구본 점 개수를 1:1로 일치시키고 하루 동안 숫자가 줄어들지 않게 함
+      const prevTopQuakeId = runtime.quakes.length > 0 ? runtime.quakes[0].id : null;
+      const allMappedQuakes = rawData.features.map((f) => {
+        const coords = (f.geometry && f.geometry.coordinates) || [0, 0, 0];
+        const props = f.properties || {};
+        const quakeTimeMs = Number(props.time) || Date.now();
+        return {
+          id: f.id || "",
+          lon: Number(coords[0]) || 0,
+          lat: Number(coords[1]) || 0,
+          depth: Number(coords[2]) || 0,
+          mag: Number(props.mag) || 0,
+          place: String(props.place || "Unknown Region"),
+          time: quakeTimeMs,
+          quakeDateKST: kstDate(new Date(quakeTimeMs).toISOString())
+        };
+      });
+
+      const todayKSTQuakes = allMappedQuakes.filter((q) => q.quakeDateKST === recordDate);
+      runtime.quakes = todayKSTQuakes;
+
       // 공식 normalized-reading.schema.json 9개 필수 키 생성
       const reading = {
         signal_id: LIVE_SIGNAL_ID,
-        normalized_value: Number(rawData.metadata.count),
+        normalized_value: todayKSTQuakes.length,
         unit: LIVE_UNIT,
         source_name: LIVE_SOURCE_NAME,
         source_url: LIVE_SOURCE_URL,
@@ -1134,27 +1156,14 @@
         record_date: recordDate
       };
 
-      const prevTopQuakeId = runtime.quakes.length > 0 ? runtime.quakes[0].id : null;
-      runtime.quakes = rawData.features.map((f) => {
-        const coords = (f.geometry && f.geometry.coordinates) || [0, 0, 0];
-        const props = f.properties || {};
-        return {
-          id: f.id || "",
-          lon: Number(coords[0]) || 0,
-          lat: Number(coords[1]) || 0,
-          depth: Number(coords[2]) || 0,
-          mag: Number(props.mag) || 0,
-          place: String(props.place || "Unknown Region"),
-          time: Number(props.time) || Date.now()
-        };
-      });
-
       runtime.lastRawExcerpt = {
         "metadata.title": rawData.metadata.title,
         "metadata.url": LIVE_SOURCE_URL,
         "metadata.generated": rawData.metadata.generated,
         "metadata.generated_iso": sourceIso,
-        "metadata.count": rawData.metadata.count,
+        "kst_record_date": recordDate,
+        "kst_today_earthquake_count": todayKSTQuakes.length,
+        "raw_rolling_24h_count": rawData.metadata.count,
         normalizedReading: reading
       };
 
