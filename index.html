@@ -314,21 +314,37 @@
       </div>
     </header>
 
-    <!-- 중앙 풀스크린 내장 관제형 세계지도 (새로운 데이터 유입 시에만 해당 진앙지가 반짝임 + 마우스 휠 확대/축소) -->
+    <!-- 중앙 풀스크린 3D 구체 지구본 (드래그 360° 회전 + 마우스 휠 확대/축소) -->
     <div class="map-canvas-wrap" id="map-viewport">
-      <svg id="world-map-svg" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="전 세계 지진 실시간 관제 세계지도">
+      <svg id="world-map-svg" viewBox="0 0 1000 500" preserveAspectRatio="xMidYMid meet" role="img" aria-label="전 세계 지진 실시간 관제 3D 지구본">
         <defs>
           <radialGradient id="beaconGlow" cx="50%" cy="50%" r="50%">
             <stop offset="0%" stop-color="#f43f5e" stop-opacity="0.85" />
             <stop offset="50%" stop-color="#06b6d4" stop-opacity="0.35" />
             <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
           </radialGradient>
+          <radialGradient id="globeOceanGrad" cx="36%" cy="30%" r="70%">
+            <stop offset="0%" stop-color="#132f57" />
+            <stop offset="55%" stop-color="#08162b" />
+            <stop offset="100%" stop-color="#030914" />
+          </radialGradient>
+          <radialGradient id="atmosphereGlow" cx="50%" cy="50%" r="50%">
+            <stop offset="82%" stop-color="#06b6d4" stop-opacity="0" />
+            <stop offset="93%" stop-color="#38bdf8" stop-opacity="0.22" />
+            <stop offset="100%" stop-color="#06b6d4" stop-opacity="0" />
+          </radialGradient>
+          <clipPath id="globeClip">
+            <circle id="globe-clip-circle" cx="500" cy="250" r="215" />
+          </clipPath>
         </defs>
         <g id="map-zoom-group">
-          <g id="map-layer-grid"></g>
-          <g id="map-layer-continents"></g>
-          <g id="map-layer-tectonic"></g>
-          <g id="map-layer-labels"></g>
+          <g id="map-layer-sphere"></g>
+          <g clip-path="url(#globeClip)">
+            <g id="map-layer-grid"></g>
+            <g id="map-layer-continents"></g>
+            <g id="map-layer-tectonic"></g>
+            <g id="map-layer-labels"></g>
+          </g>
           <g id="map-layer-quakes"></g>
           <g id="map-layer-beacon"></g>
         </g>

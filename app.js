@@ -540,9 +540,10 @@
     todayAttempts: {},
     activeDrawerTab: "tab-control",
     isDrawerOpen: false,
+    // 3D 구체 지구본 회전(rotLon, rotLat) 및 확대(zoomScale) 상태
+    rotLon: 138,
+    rotLat: 22,
     zoomScale: 1,
-    panX: 0,
-    panY: 0,
     isDraggingMap: false,
     didDragMove: false,
     dragStartX: 0,
@@ -556,146 +557,227 @@
   }
 
   // ============================================================================
-  // 4. 내장 정밀 세계지도 SVG & 규모 비례 과장 파동 & 클릭 점 정보 카드
+  // 4. 3D 구체 지구본(Orthographic 3D Globe) 투영 & 규모 비례 파동 & 클릭 카드
   // ============================================================================
-  function lonLatToXY(lon, lat) {
-    const clampedLon = Math.max(-180, Math.min(180, Number(lon) || 0));
-    const clampedLat = Math.max(-90, Math.min(90, Number(lat) || 0));
-    const x = ((clampedLon + 180) / 360) * 1000;
-    const y = ((90 - clampedLat) / 180) * 500;
-    return { x: Number(x.toFixed(1)), y: Number(y.toFixed(1)) };
+  const GLOBE_CX = 500;
+  const GLOBE_CY = 250;
+  const BASE_GLOBE_R = 215;
+  const DEG2RAD = Math.PI / 180;
+
+  function getGlobeRadius() {
+    return BASE_GLOBE_R * runtime.zoomScale;
+  }
+
+  /**
+   * 위도·경도를 3D 구체(Orthographic Projection) 화면 좌표 (x, y) 및 가시성(z >= 0)으로 변환합니다.
+   */
+  function project3D(lon, lat) {
+    const R = getGlobeRadius();
+    const lam = (Number(lon) || 0) * DEG2RAD;
+    const phi = (Number(lat) || 0) * DEG2RAD;
+    const lam0 = runtime.rotLon * DEG2RAD;
+    const phi0 = runtime.rotLat * DEG2RAD;
+    const dLam = lam - lam0;
+
+    const sinPhi0 = Math.sin(phi0);
+    const cosPhi0 = Math.cos(phi0);
+    const sinPhi = Math.sin(phi);
+    const cosPhi = Math.cos(phi);
+    const cosDLam = Math.cos(dLam);
+    const sinDLam = Math.sin(dLam);
+
+    // z > 0 이면 지구본 앞면(보이는 반구), z < 0 이면 지구 반대편(뒷면)
+    const z = sinPhi0 * sinPhi + cosPhi0 * cosPhi * cosDLam;
+    const rawX = cosPhi * sinDLam;
+    const rawY = cosPhi0 * sinPhi - sinPhi0 * cosPhi * cosDLam;
+
+    let x = GLOBE_CX + R * rawX;
+    let y = GLOBE_CY - R * rawY;
+
+    // 지평선(Horizon) 너머의 대륙 꼭짓점이 구체 앞면을 가로지르지 않도록 지평선 원 둘레로 클램핑
+    if (z < 0) {
+      const len = Math.hypot(rawX, rawY) || 1;
+      x = GLOBE_CX + R * (rawX / len);
+      y = GLOBE_CY - R * (rawY / len);
+    }
+
+    return {
+      x: Number(x.toFixed(1)),
+      y: Number(y.toFixed(1)),
+      z,
+      visible: z >= 0
+    };
   }
 
   function initWorldMapBase() {
+    render3DGlobeBase();
+  }
+
+  function render3DGlobeBase() {
+    const sphereLayer = document.getElementById("map-layer-sphere");
+    const clipCircle = document.getElementById("globe-clip-circle");
     const gridLayer = document.getElementById("map-layer-grid");
     const continentLayer = document.getElementById("map-layer-continents");
     const tectonicLayer = document.getElementById("map-layer-tectonic");
     const labelsLayer = document.getElementById("map-layer-labels");
     if (!gridLayer || !continentLayer || !tectonicLayer) return;
 
-    let gridHtml = "";
-    for (let lon = -150; lon <= 150; lon += 30) {
-      const { x } = lonLatToXY(lon, 0);
-      gridHtml += `<line x1="${x}" y1="0" x2="${x}" y2="500" class="map-grid-line" />`;
-      gridHtml += `<text x="${x + 3}" y="493" fill="#334155" font-size="7.5" font-family="monospace">${lon > 0 ? "+" + lon : lon}°</text>`;
+    const R = getGlobeRadius();
+    const activeState = getActiveAdapterState();
+    const isStale = activeState.status && activeState.status.freshness === "stale";
+
+    if (clipCircle) {
+      clipCircle.setAttribute("r", String(R.toFixed(1)));
     }
+
+    // 0) 3D 구체 바다 및 대기권 광채(Atmosphere Halo) 렌더링
+    if (sphereLayer) {
+      const rimColor = isStale ? "rgba(245, 158, 11, 0.75)" : "rgba(56, 189, 248, 0.55)";
+      sphereLayer.innerHTML = `
+        <circle cx="${GLOBE_CX}" cy="${GLOBE_CY}" r="${(R * 1.12).toFixed(1)}" fill="url(#atmosphereGlow)" pointer-events="none" />
+        <circle cx="${GLOBE_CX}" cy="${GLOBE_CY}" r="${R.toFixed(1)}" fill="url(#globeOceanGrad)" stroke="${rimColor}" stroke-width="1.5" />
+      `;
+    }
+
+    // 1) 3D 구면 경위도 격자선 렌더링
+    let gridHtml = "";
+    for (let lon = -180; lon < 180; lon += 30) {
+      let pathCmd = "";
+      for (let lat = -80; lat <= 80; lat += 5) {
+        const pt = project3D(lon, lat);
+        if (pt.visible) {
+          pathCmd += (pathCmd === "" || pathCmd.endsWith(" ") ? "M" : "L") + `${pt.x},${pt.y}`;
+        } else if (pathCmd !== "" && !pathCmd.endsWith(" ")) {
+          pathCmd += " ";
+        }
+      }
+      if (pathCmd.trim()) {
+        gridHtml += `<path d="${pathCmd.trim()}" fill="none" class="map-grid-line" />`;
+      }
+    }
+
     for (let lat = -60; lat <= 60; lat += 30) {
-      const { y } = lonLatToXY(0, lat);
-      const cls = lat === 0 ? "map-equator-line" : "map-grid-line";
-      gridHtml += `<line x1="0" y1="${y}" x2="1000" y2="${y}" class="${cls}" />`;
-      gridHtml += `<text x="6" y="${y - 4}" fill="#334155" font-size="7.5" font-family="monospace">${lat === 0 ? "EQ 0°" : (lat > 0 ? "+" + lat : lat) + "°"}</text>`;
+      let pathCmd = "";
+      for (let lon = -180; lon <= 180; lon += 5) {
+        const pt = project3D(lon, lat);
+        if (pt.visible) {
+          pathCmd += (pathCmd === "" || pathCmd.endsWith(" ") ? "M" : "L") + `${pt.x},${pt.y}`;
+        } else if (pathCmd !== "" && !pathCmd.endsWith(" ")) {
+          pathCmd += " ";
+        }
+      }
+      if (pathCmd.trim()) {
+        const cls = lat === 0 ? "map-equator-line" : "map-grid-line";
+        gridHtml += `<path d="${pathCmd.trim()}" fill="none" class="${cls}" />`;
+      }
     }
     gridLayer.innerHTML = gridHtml;
 
+    // 2) 3D 구체 위 대륙 폴리곤 렌더링 (뒷면 컬링 포함)
     const mapData = window.WORLD_MAP_DATA || { continents: [], tectonicBelts: [], mapLabels: [] };
     let continentHtml = "";
     mapData.continents.forEach((cont) => {
-      const points = cont.coords
-        .map(([lon, lat]) => {
-          const { x, y } = lonLatToXY(lon, lat);
-          return `${x},${y}`;
-        })
-        .join(" ");
-      continentHtml += `<polygon points="${points}" class="map-continent"><title>${cont.name}</title></polygon>`;
+      let hasVisibleVertex = false;
+      const projected = cont.coords.map(([lon, lat]) => {
+        const p = project3D(lon, lat);
+        if (p.z > -0.08) hasVisibleVertex = true;
+        return `${p.x},${p.y}`;
+      });
+      if (!hasVisibleVertex) return;
+      continentHtml += `<polygon points="${projected.join(" ")}" class="map-continent"><title>${cont.name}</title></polygon>`;
     });
     continentLayer.innerHTML = continentHtml;
 
+    // 3) 3D 지진대 가이드라인 렌더링
     let tectonicHtml = "";
     mapData.tectonicBelts.forEach((belt) => {
-      const points = belt
-        .map(([lon, lat]) => {
-          const { x, y } = lonLatToXY(lon, lat);
-          return `${x},${y}`;
-        })
-        .join(" ");
-      tectonicHtml += `<polyline points="${points}" class="map-tectonic" />`;
+      let pathCmd = "";
+      belt.forEach(([lon, lat]) => {
+        const p = project3D(lon, lat);
+        if (p.visible) {
+          pathCmd += (pathCmd === "" || pathCmd.endsWith(" ") ? "M" : "L") + `${p.x},${p.y}`;
+        } else if (pathCmd !== "" && !pathCmd.endsWith(" ")) {
+          pathCmd += " ";
+        }
+      });
+      if (pathCmd.trim()) {
+        tectonicHtml += `<path d="${pathCmd.trim()}" class="map-tectonic" />`;
+      }
     });
     tectonicLayer.innerHTML = tectonicHtml;
 
+    // 4) 가시 반구(z > 0.15) 내 지명 라벨 렌더링
     if (labelsLayer && Array.isArray(mapData.mapLabels)) {
       let labelsHtml = "";
       mapData.mapLabels.forEach((lbl) => {
-        const { x, y } = lonLatToXY(lbl.lon, lbl.lat);
-        let fill = "rgba(56, 189, 248, 0.16)";
-        if (lbl.type === "fault") fill = "rgba(244, 63, 94, 0.28)";
-        if (lbl.type === "country") fill = "rgba(148, 163, 184, 0.38)";
-        labelsHtml += `<text x="${x}" y="${y}" fill="${fill}" font-size="${lbl.size || 8}" font-weight="700" class="map-geo-label">${lbl.text}</text>`;
+        const p = project3D(lbl.lon, lbl.lat);
+        if (p.z < 0.18) return;
+        let fill = "rgba(56, 189, 248, 0.18)";
+        if (lbl.type === "fault") fill = "rgba(244, 63, 94, 0.3)";
+        if (lbl.type === "country") fill = "rgba(148, 163, 184, 0.42)";
+        labelsHtml += `<text x="${p.x}" y="${p.y}" fill="${fill}" font-size="${lbl.size || 8}" font-weight="700" class="map-geo-label">${lbl.text}</text>`;
       });
       labelsLayer.innerHTML = labelsHtml;
     }
   }
 
-  function clampPan(panX, panY, scale) {
-    const minX = 1000 * (1 - scale);
-    const minY = 500 * (1 - scale);
-    return {
-      x: Math.max(minX, Math.min(0, panX)),
-      y: Math.max(minY, Math.min(0, panY))
-    };
-  }
-
   function applyMapZoomTransform() {
-    const zoomGroup = document.getElementById("map-zoom-group");
     const zoomText = document.getElementById("zoom-level-text");
-    const clamped = clampPan(runtime.panX, runtime.panY, runtime.zoomScale);
-    runtime.panX = clamped.x;
-    runtime.panY = clamped.y;
-
-    if (zoomGroup) {
-      zoomGroup.setAttribute(
-        "transform",
-        `translate(${runtime.panX.toFixed(2)}, ${runtime.panY.toFixed(2)}) scale(${runtime.zoomScale.toFixed(3)})`
-      );
-    }
     if (zoomText) {
       zoomText.textContent = `${runtime.zoomScale.toFixed(1)}x`;
     }
-    positionSelectedQuakeCard();
+    render3DGlobeBase();
+    renderQuakesOnMap();
   }
 
-  function zoomMapAtPoint(newScale, focalSvgX, focalSvgY) {
-    const clampedScale = Math.max(1.0, Math.min(10.0, newScale));
-    const oldScale = runtime.zoomScale;
-    if (Math.abs(clampedScale - oldScale) < 0.001) return;
-
-    const ratio = clampedScale / oldScale;
-    runtime.panX = focalSvgX - (focalSvgX - runtime.panX) * ratio;
-    runtime.panY = focalSvgY - (focalSvgY - runtime.panY) * ratio;
+  function zoomMapAtPoint(newScale) {
+    const clampedScale = Math.max(0.8, Math.min(6.0, newScale));
+    if (Math.abs(clampedScale - runtime.zoomScale) < 0.001) return;
     runtime.zoomScale = clampedScale;
-
     applyMapZoomTransform();
-    renderQuakesOnMap();
+  }
+
+  function focusGlobeOnLonLat(lon, lat) {
+    if (!Number.isFinite(lon) || !Number.isFinite(lat)) return;
+    runtime.rotLon = ((Number(lon) + 180) % 360 + 360) % 360 - 180;
+    runtime.rotLat = Math.max(-70, Math.min(70, Number(lat) * 0.65));
   }
 
   function positionSelectedQuakeCard() {
     const card = document.getElementById("selected-quake-card");
     const svgEl = document.getElementById("world-map-svg");
     const viewportEl = document.getElementById("map-viewport");
-    if (!card || !svgEl || !viewportEl || card.style.display === "none") return;
+    if (!card || !svgEl || !viewportEl) return;
 
     const quakes = runtime.quakes || [];
     const idx = runtime.selectedQuakeIndex;
-    if (idx === null || idx < 0 || idx >= quakes.length) return;
+    if (idx === null || idx < 0 || idx >= quakes.length) {
+      card.style.display = "none";
+      return;
+    }
 
     const q = quakes[idx];
-    const { x, y } = lonLatToXY(q.lon, q.lat);
-    const viewX = runtime.panX + x * runtime.zoomScale;
-    const viewY = runtime.panY + y * runtime.zoomScale;
+    const proj = project3D(q.lon, q.lat);
+    if (!proj.visible) {
+      card.style.display = "none";
+      return;
+    }
+    card.style.display = "block";
 
     const svgRect = svgEl.getBoundingClientRect();
     const vpRect = viewportEl.getBoundingClientRect();
 
-    const dotPixelX = svgRect.left - vpRect.left + (viewX / 1000) * svgRect.width;
-    const dotPixelY = svgRect.top - vpRect.top + (viewY / 500) * svgRect.height;
+    const dotPixelX = svgRect.left - vpRect.left + (proj.x / 1000) * svgRect.width;
+    const dotPixelY = svgRect.top - vpRect.top + (proj.y / 500) * svgRect.height;
 
     const cardWidth = card.offsetWidth || 265;
     const cardHeight = card.offsetHeight || 115;
 
-    let left = dotPixelX + 12;
+    let left = dotPixelX + 14;
     let top = dotPixelY - cardHeight / 2;
 
     if (left + cardWidth > vpRect.width - 14) {
-      left = dotPixelX - cardWidth - 12;
+      left = dotPixelX - cardWidth - 14;
     }
     left = Math.max(12, Math.min(vpRect.width - cardWidth - 12, left));
     top = Math.max(12, Math.min(vpRect.height - cardHeight - 12, top));
@@ -720,7 +802,6 @@
     const magBadge = document.getElementById("sq-mag-badge");
     const typeLabel = document.getElementById("sq-type-label");
 
-    card.style.display = "block";
     magBadge.textContent = `M ${mag.toFixed(1)}`;
     if (mag >= 4.5) {
       magBadge.style.background = "rgba(244, 63, 94, 0.25)";
@@ -763,7 +844,7 @@
     const activeState = getActiveAdapterState();
     const isStale = activeState.status && activeState.status.freshness === "stale";
     const quakes = runtime.quakes || [];
-    const invScale = 1 / Math.pow(runtime.zoomScale, 0.7);
+    const scaleFactor = Math.pow(runtime.zoomScale, 0.35);
 
     if (quakes.length === 0) {
       quakesLayer.innerHTML = "";
@@ -772,30 +853,32 @@
       return;
     }
 
-    // 1) 이전 지진 점 렌더링 (20% 확대 + 규모별 편차 부각, 클릭 시 크기 변화 없음)
+    // 1) 3D 구체 앞면(visible)에 위치한 이전 지진 점 렌더링
     let dotsHtml = "";
     for (let i = quakes.length - 1; i >= 1; i--) {
       const q = quakes[i];
-      const { x, y } = lonLatToXY(q.lon, q.lat);
+      const proj = project3D(q.lon, q.lat);
+      if (!proj.visible) continue;
+
+      const { x, y } = proj;
       const mag = Number(q.mag) || 0;
       const isSelected = runtime.selectedQuakeIndex === i;
-      const baseRadius = computeQuakeDotRadius(mag);
-      const radius = baseRadius * invScale;
-      const hitRadius = Math.max(radius, 3.2 * invScale);
+      const radius = computeQuakeDotRadius(mag) * scaleFactor;
+      const hitRadius = Math.max(radius, 3.2);
 
-      let fill = isSelected ? "#ffffff" : "rgba(56, 189, 248, 0.65)";
+      let fill = isSelected ? "#ffffff" : "rgba(56, 189, 248, 0.72)";
       let stroke = isSelected ? "#38bdf8" : "rgba(56, 189, 248, 0.95)";
       if (mag >= 4.5) {
-        fill = isSelected ? "#ffffff" : "rgba(244, 63, 94, 0.8)";
+        fill = isSelected ? "#ffffff" : "rgba(244, 63, 94, 0.85)";
         stroke = isSelected ? "#f43f5e" : "#fda4af";
       } else if (mag >= 2.5) {
-        fill = isSelected ? "#ffffff" : "rgba(251, 191, 36, 0.75)";
+        fill = isSelected ? "#ffffff" : "rgba(251, 191, 36, 0.8)";
         stroke = isSelected ? "#fbbf24" : "#fde68a";
       }
 
       if (isStale && !isSelected) {
-        fill = "rgba(245, 158, 11, 0.5)";
-        stroke = "rgba(251, 191, 36, 0.82)";
+        fill = "rgba(245, 158, 11, 0.55)";
+        stroke = "rgba(251, 191, 36, 0.85)";
       }
 
       dotsHtml += `
@@ -807,7 +890,7 @@
             r="${radius.toFixed(2)}"
             fill="${fill}"
             stroke="${stroke}"
-            stroke-width="${((isSelected ? 0.55 : 0.22) * invScale).toFixed(2)}"
+            stroke-width="${(isSelected ? 0.65 : 0.25).toFixed(2)}"
             class="quake-dot ${isSelected ? "selected" : ""}"
           />
           <title>[클릭하여 정보 보기] M${mag.toFixed(1)} — ${q.place}</title>
@@ -826,34 +909,38 @@
       });
     });
 
-    // 2) 오직 최신 지진(quakes[0]) 위치에만 규모에 비례해 과장된 크기의 파동 비콘 표시
+    // 2) 최신 지진(quakes[0]) 위치에 규모 비례 과장 파동 비콘 표시
     const newestQuake = quakes[0];
+    const newestProj = project3D(newestQuake.lon, newestQuake.lat);
+    if (!newestProj.visible) {
+      beaconLayer.innerHTML = "";
+      renderSelectedQuakeCard();
+      return;
+    }
+
     const newestMag = Math.max(0.5, Number(newestQuake.mag) || 1.0);
-    const newestDotRadius = computeQuakeDotRadius(newestMag);
-    const pulseMaxR = Math.round(20 + Math.pow(newestMag, 1.55) * 15);
+    const newestDotRadius = computeQuakeDotRadius(newestMag) * scaleFactor;
+    const pulseMaxR = Math.round((20 + Math.pow(newestMag, 1.55) * 15) * scaleFactor);
     const glowR = Math.round(pulseMaxR * 0.65);
 
-    const { x: bx, y: by } = lonLatToXY(newestQuake.lon, newestQuake.lat);
-    const labelOffsetX = (bx > 750 ? -190 : 14) * invScale;
-    const labelOffsetY = (by < 50 ? 22 : -12) * invScale;
+    const { x: bx, y: by } = newestProj;
+    const labelOffsetX = bx > 620 ? -186 : 12;
+    const labelOffsetY = by < 70 ? 18 : -12;
     const statusPrefix = isStale ? "[STALE 유지] " : "[NEW 감지] ";
 
     beaconLayer.innerHTML = `
-      <line x1="${bx}" y1="0" x2="${bx}" y2="500" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="${(0.8 * invScale).toFixed(2)}" stroke-dasharray="${3 * invScale} ${4 * invScale}" pointer-events="none" />
-      <line x1="0" y1="${by}" x2="1000" y2="${by}" stroke="${isStale ? 'rgba(245,158,11,0.28)' : 'rgba(34,211,238,0.24)'}" stroke-width="${(0.8 * invScale).toFixed(2)}" stroke-dasharray="${3 * invScale} ${4 * invScale}" pointer-events="none" />
-
-      <g transform="translate(${bx}, ${by}) scale(${invScale.toFixed(3)})" style="--pulse-max-r: ${pulseMaxR}px;">
+      <g transform="translate(${bx}, ${by})" style="--pulse-max-r: ${pulseMaxR}px;">
         <circle cx="0" cy="0" r="${glowR}" fill="url(#beaconGlow)" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-1" pointer-events="none" />
         <circle cx="0" cy="0" r="1" class="latest-pulse-ring delay-2" pointer-events="none" />
-        <circle cx="0" cy="0" r="4" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;" />
+        <circle cx="0" cy="0" r="5" fill="transparent" id="latest-beacon-hit" style="cursor:pointer;" />
         <circle cx="0" cy="0" r="${newestDotRadius.toFixed(2)}" class="latest-core-beacon" pointer-events="none">
           <title>${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} — ${newestQuake.place}</title>
         </circle>
       </g>
 
-      <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)}) scale(${invScale.toFixed(3)})" pointer-events="none">
+      <g transform="translate(${(bx + labelOffsetX).toFixed(1)}, ${(by + labelOffsetY).toFixed(1)})" pointer-events="none">
         <rect x="0" y="-13" width="180" height="30" rx="5" fill="rgba(6, 11, 22, 0.88)" stroke="${isStale ? '#f59e0b' : '#22d3ee'}" stroke-width="1" />
         <text x="7" y="-1" fill="${isStale ? '#fde68a' : '#38bdf8'}" font-size="9" font-weight="bold" font-family="sans-serif">
           ${statusPrefix}M${Number(newestQuake.mag).toFixed(1)} 진앙지
@@ -878,13 +965,24 @@
   }
 
   function triggerNewDataArrivalFlash() {
-    const beaconLayer = document.getElementById("map-layer-beacon");
-    if (!beaconLayer || !runtime.quakes || !runtime.quakes.length) return;
-
+    if (!runtime.quakes || !runtime.quakes.length) return;
     const newest = runtime.quakes[0];
+
+    // 새 지진이 지구본 뒷면에 있으면 해당 진앙지가 정면에 보이도록 지구본 자동 회전
+    const checkProj = project3D(newest.lon, newest.lat);
+    if (checkProj.z < 0.25) {
+      focusGlobeOnLonLat(newest.lon, newest.lat);
+      render3DGlobeBase();
+      renderQuakesOnMap();
+    }
+
+    const beaconLayer = document.getElementById("map-layer-beacon");
+    if (!beaconLayer) return;
+
     const newestMag = Math.max(0.5, Number(newest.mag) || 1.0);
     const maxBurstR = Math.round(28 + Math.pow(newestMag, 1.6) * 18);
-    const { x, y } = lonLatToXY(newest.lon, newest.lat);
+    const { x, y, visible } = project3D(newest.lon, newest.lat);
+    if (!visible) return;
 
     const flashCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
     flashCircle.setAttribute("cx", String(x));
@@ -1231,6 +1329,7 @@
       );
     }
 
+    render3DGlobeBase();
     renderQuakesOnMap();
     renderDailyRecordsTable();
     renderDayOverDayComparison();
@@ -1481,18 +1580,15 @@
       if (e.key === "Escape" && runtime.isDrawerOpen) closeDrawer();
     });
 
-    // 세계지도 마우스 휠 확대/축소 & 드래그 패닝
+    // 3D 지구본 마우스 휠 확대/축소 & 드래그 360° 회전
     const svgEl = document.getElementById("world-map-svg");
     if (svgEl) {
       svgEl.addEventListener(
         "wheel",
         (e) => {
           e.preventDefault();
-          const rect = svgEl.getBoundingClientRect();
-          const focalSvgX = ((e.clientX - rect.left) / rect.width) * 1000;
-          const focalSvgY = ((e.clientY - rect.top) / rect.height) * 500;
-          const factor = e.deltaY < 0 ? 1.22 : 1 / 1.22;
-          zoomMapAtPoint(runtime.zoomScale * factor, focalSvgX, focalSvgY);
+          const factor = e.deltaY < 0 ? 1.18 : 1 / 1.18;
+          zoomMapAtPoint(runtime.zoomScale * factor);
         },
         { passive: false }
       );
@@ -1507,15 +1603,18 @@
 
       window.addEventListener("mousemove", (e) => {
         if (!runtime.isDraggingMap) return;
-        const moveDist = Math.hypot(e.clientX - runtime.dragStartX, e.clientY - runtime.dragStartY);
-        if (moveDist > 3) runtime.didDragMove = true;
-        const rect = svgEl.getBoundingClientRect();
-        const dxSvg = ((e.clientX - runtime.dragStartX) / rect.width) * 1000;
-        const dySvg = ((e.clientY - runtime.dragStartY) / rect.height) * 500;
+        const dx = e.clientX - runtime.dragStartX;
+        const dy = e.clientY - runtime.dragStartY;
+        const moveDist = Math.hypot(dx, dy);
+        if (moveDist > 2) runtime.didDragMove = true;
+
         runtime.dragStartX = e.clientX;
         runtime.dragStartY = e.clientY;
-        runtime.panX += dxSvg;
-        runtime.panY += dySvg;
+
+        const sensitivity = 0.28 / Math.pow(runtime.zoomScale, 0.7);
+        runtime.rotLon = (((runtime.rotLon - dx * sensitivity) + 180) % 360 + 360) % 360 - 180;
+        runtime.rotLat = Math.max(-75, Math.min(75, runtime.rotLat + dy * sensitivity));
+
         applyMapZoomTransform();
       });
 
@@ -1543,17 +1642,20 @@
     }
 
     document.getElementById("btn-zoom-in").addEventListener("click", () => {
-      zoomMapAtPoint(runtime.zoomScale * 1.35, 500, 250);
+      zoomMapAtPoint(runtime.zoomScale * 1.28);
     });
     document.getElementById("btn-zoom-out").addEventListener("click", () => {
-      zoomMapAtPoint(runtime.zoomScale / 1.35, 500, 250);
+      zoomMapAtPoint(runtime.zoomScale / 1.28);
     });
     document.getElementById("btn-zoom-reset").addEventListener("click", () => {
       runtime.zoomScale = 1;
-      runtime.panX = 0;
-      runtime.panY = 0;
+      if (runtime.quakes && runtime.quakes.length > 0) {
+        focusGlobeOnLonLat(runtime.quakes[0].lon, runtime.quakes[0].lat);
+      } else {
+        runtime.rotLon = 138;
+        runtime.rotLat = 22;
+      }
       applyMapZoomTransform();
-      renderQuakesOnMap();
     });
 
     // 실시간 조회 및 Reset 버튼
