@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>USGS 글로벌 지진 실시간 관제 대시보드</title>
+  <title>USGS 글로벌 지진 실시간 관제 대시보드 (T04 오늘의 진짜 정보판)</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -11,7 +11,7 @@
        왼쪽 고정 사이드 탭 레일 (클릭 시 슬라이드 드로어 열기/닫기)
        ======================================================================== -->
   <nav class="left-rail" aria-label="관제 메뉴 탭">
-    <button class="rail-btn" data-drawer-tab="tab-control" type="button" title="장애 재현 및 제어 패널 열기">
+    <button class="rail-btn" data-drawer-tab="tab-control" type="button" title="T04 공식 9개 Fixture 및 장애/복구 제어 열기">
       ⚡
     </button>
     <div class="rail-label">제어/장애</div>
@@ -37,64 +37,99 @@
        ======================================================================== -->
   <aside class="side-drawer" id="side-drawer" aria-label="상세 관제 및 과제 검증 패널">
     <div class="drawer-header">
-      <div class="drawer-title">🎛️ 관제 제어판 & 과제 검증 패널</div>
+      <div class="drawer-title">🎛️ 관제 제어판 & T04 공식 검증 패널</div>
       <button class="drawer-close-btn" id="btn-close-drawer" type="button">✕ 닫기</button>
     </div>
 
     <div class="drawer-tabs" role="tablist">
-      <button class="drawer-tab-btn active" data-drawer-tab="tab-control" type="button">⚡ 장애/복구</button>
+      <button class="drawer-tab-btn active" data-drawer-tab="tab-control" type="button">⚡ 장애/Fixture</button>
       <button class="drawer-tab-btn" data-drawer-tab="tab-records" type="button">📅 일별/전일대비</button>
       <button class="drawer-tab-btn" data-drawer-tab="tab-inspector" type="button">🔍 정합성 대조</button>
       <button class="drawer-tab-btn" data-drawer-tab="tab-guide" type="button">📋 확인/AI판단</button>
     </div>
 
     <div class="drawer-body">
-      <!-- [탭 1] 장애 재현 및 복구 제어 (카드 3: T04-C12 ~ T04-C19, C26) -->
+      <!-- [탭 1] T04 공식 9개 결정론 Fixture 재생 & 실시간 제어 (T04-C12 ~ T04-C21, C26) -->
       <div class="drawer-pane active" id="tab-control">
         <div class="panel-block">
           <div class="panel-block-title">
-            <span>📡 실시간 데이터 조회 및 복구 제어</span>
-            <span class="req-tag">T04-C19</span>
+            <span>📡 실시간 USGS 조회 & 합성 평가 Reset</span>
+            <span class="req-tag">Live / Reset</span>
           </div>
           <div class="btn-stack">
             <button class="btn btn-primary" id="btn-retry-live" type="button">
-              <span>🔄 실시간 USGS API 조회 (재시도)</span>
-              <span class="req-tag">Live</span>
+              <span>🔄 실시간 USGS 지진 데이터 즉시 조회 (Live)</span>
+              <span class="req-tag">T04-C03~C10</span>
             </button>
-            <button class="btn btn-emerald" id="btn-retry-fixture" type="button">
-              <span>✨ 복구 Fixture 재생 (fresh 복귀 + 다음 날짜 기록 추가)</span>
-              <span class="req-tag">T04-C19·C21</span>
+            <button class="btn" id="btn-reset-eval" type="button">
+              <span>🧹 합성 평가 상태 Reset (실제 USGS 기록은 보존)</span>
+              <span class="req-tag">resetEvaluationState</span>
             </button>
           </div>
         </div>
 
+        <!-- 공식 정상 & 회복 Fixture (T04-NORMAL-D1-A, D1-B, D2, RECOVER-D2) -->
         <div class="panel-block">
           <div class="panel-block-title">
-            <span>🧪 실패 유형 5가지 합성 재현 (Fixture)</span>
+            <span>🟢 공식 정상·일별·회복 Fixture 재생</span>
+            <span class="req-tag">T04-C19~C21</span>
+          </div>
+          <div class="btn-row" style="margin-bottom: 8px;">
+            <button class="btn btn-primary" id="btn-seq-success" type="button" style="flex:1; justify-content:center;">
+              ▶ 정상 시퀀스 일괄 재생 (Reset → D1-A → D1-B → D2)
+            </button>
+            <button class="btn btn-emerald" id="btn-seq-recover" type="button" style="flex:1; justify-content:center;">
+              ▶ 복구 시퀀스 일괄 재생 (D1-A/B → TIMEOUT → RECOVER-D2)
+            </button>
+          </div>
+          <div class="btn-stack">
+            <button class="btn fixture-btn" data-fixture-id="T04-NORMAL-D1-A" type="button">
+              <span>1. <code>T04-NORMAL-D1-A</code> (2026-08-24 첫 조회: 값 100 pt, 행 1개)</span>
+              <span class="req-tag">D1-A</span>
+            </button>
+            <button class="btn fixture-btn" data-fixture-id="T04-NORMAL-D1-B" type="button">
+              <span>2. <code>T04-NORMAL-D1-B</code> (같은 날 재조회: 값 105 pt 덮어쓰기, 행 1개)</span>
+              <span class="req-tag">T04-C20</span>
+            </button>
+            <button class="btn fixture-btn" data-fixture-id="T04-NORMAL-D2" type="button">
+              <span>3. <code>T04-NORMAL-D2</code> (2026-08-25 다음 날: 값 120 pt, 행 2개, 변화 +15)</span>
+              <span class="req-tag">T04-C21·C24</span>
+            </button>
+            <button class="btn btn-emerald fixture-btn" id="btn-retry-fixture" data-fixture-id="T04-RECOVER-D2" type="button">
+              <span>9. <code>T04-RECOVER-D2</code> (다시 시도 성공: fresh/none 복귀 + 2026-08-25 행 1건 추가)</span>
+              <span class="req-tag">T04-C19</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 공식 5대 실패 Fixture (T04-TIMEOUT, AUTH-401, RATE-429, OFFLINE, SCHEMA-BREAK) -->
+        <div class="panel-block">
+          <div class="panel-block-title">
+            <span>🧪 공식 5대 실패 Fixture 재생 (합성 시험값 전용)</span>
             <span class="req-tag">T04-C12~C18·C26</span>
           </div>
-          <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 10px;">
-            실패 버튼 클릭 시 합성 테스트 데이터만 사용하며, 메인 화면의 마지막 정상값과 지도 좌표는 지워지지 않고 <strong>STALE(오래된 값)</strong>로 표시됩니다.
+          <p style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 8px;">
+            실패 재생 시 마지막 정상값이 지워지지 않고 유지되며(<code>T04-C17</code>), <code>freshness: "stale"</code> 및 규격 소문자 <code>error_code</code>가 표시됩니다(<code>T04-C18</code>).
           </p>
           <div class="btn-stack">
-            <button class="btn btn-rose fault-btn" data-fault="TIMEOUT" type="button">
-              <span>⏳ 1. 응답 지연 (Timeout) 재현</span>
+            <button class="btn btn-rose fault-btn fixture-btn" data-fixture-id="T04-TIMEOUT" data-fault="timeout" type="button">
+              <span>4. <code>T04-TIMEOUT</code> — 느린 외부 응답 (<code>stale / timeout</code>)</span>
               <span class="req-tag">T04-C12</span>
             </button>
-            <button class="btn btn-rose fault-btn" data-fault="AUTH_401_403" type="button">
-              <span>🚫 2. 401/403 접근 거부 재현</span>
+            <button class="btn btn-rose fault-btn fixture-btn" data-fixture-id="T04-AUTH-401" data-fault="auth" type="button">
+              <span>5. <code>T04-AUTH-401</code> — 외부 원천 401/403 거절 (<code>stale / auth</code>)</span>
               <span class="req-tag">T04-C13</span>
             </button>
-            <button class="btn btn-rose fault-btn" data-fault="RATE_LIMIT_429" type="button">
-              <span>🚦 3. 호출 제한 (429 Rate Limit) 재현</span>
+            <button class="btn btn-rose fault-btn fixture-btn" data-fixture-id="T04-RATE-429" data-fault="rate_limit" type="button">
+              <span>6. <code>T04-RATE-429</code> — 외부 원천 호출 제한 (<code>stale / rate_limit</code>)</span>
               <span class="req-tag">T04-C14</span>
             </button>
-            <button class="btn btn-rose fault-btn" data-fault="OFFLINE" type="button">
-              <span>📡 4. 네트워크 오프라인 재현</span>
+            <button class="btn btn-rose fault-btn fixture-btn" data-fixture-id="T04-OFFLINE" data-fault="offline" type="button">
+              <span>7. <code>T04-OFFLINE</code> — 네트워크 오프라인 (<code>stale / offline</code>)</span>
               <span class="req-tag">T04-C15</span>
             </button>
-            <button class="btn btn-rose fault-btn" data-fault="SCHEMA_MISMATCH" type="button">
-              <span>🧩 5. 응답 형식(Schema) 변경 재현</span>
+            <button class="btn btn-rose fault-btn fixture-btn" data-fixture-id="T04-SCHEMA-BREAK" data-fault="schema_error" type="button">
+              <span>8. <code>T04-SCHEMA-BREAK</code> — 응답 형식 변경 (<code>stale / schema_error</code>)</span>
               <span class="req-tag">T04-C16</span>
             </button>
           </div>
@@ -102,32 +137,34 @@
 
         <div class="panel-block" id="fault-detail-panel">
           <div class="panel-block-title">
-            <span id="fault-Diagnostic-title" style="color: #34d399;">✅ 정상 상태 (fresh / none)</span>
+            <span id="fault-Diagnostic-title" style="color: #34d399;">✅ 현재 상태: fresh / none</span>
           </div>
-          <div id="fault-diagnostic-desc" style="font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 8px;">
-            현재 정상 수신 중입니다.
+          <div id="fault-diagnostic-desc" style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">
+            실시간 USGS 조회 및 T04 공식 결정론 Fixture 재생기가 준비되었습니다.
           </div>
-          <pre class="json-view" id="fault-fixture-json">// 합성 실패/복구 Fixture 로그 (T04-C26)</pre>
+          <pre class="json-view" id="fault-fixture-json">// T04 공식 평가 상태(evaluationState) 및 Fixture 실행 결과</pre>
         </div>
       </div>
 
       <!-- [탭 2] 일별 기록 & 전일 대비 변화 (카드 4·5: T04-C20 ~ T04-C24) -->
       <div class="drawer-pane" id="tab-records">
+        <!-- 실제 USGS 일별 기록 (T04-C22 ~ C24) -->
         <div class="panel-block">
           <div class="panel-block-title">
-            <span>📅 KST(YYYY-MM-DD) 하루 1건 일별 기록</span>
-            <span class="req-tag">T04-C20·C21</span>
+            <span>🌏 실제 USGS 공개 원천 일별 기록 (Asia/Seoul)</span>
+            <span class="req-tag">T04-C20~C24</span>
           </div>
-          <div style="font-size: 0.76rem; color: var(--text-secondary); margin-bottom: 10px;">
-            <div>• 오늘(<span id="summary-today-kst">--</span>) 성공: <strong id="summary-today-attempts" style="color:#34d399;">0회</strong> → 오늘 기록 수: <strong id="summary-today-rows" style="color:#38bdf8;">1건 유지</strong></div>
-            <div>• 전체 기록: 총 <strong id="summary-total-records">0</strong>건 (실제 조회 <strong id="summary-real-records" style="color:#34d399;">0</strong>건 / 복구 Fixture <strong id="summary-fixture-records">0</strong>건)</div>
+          <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 8px;">
+            <div>• 고유키: <code>signal_id + record_date (Asia/Seoul YYYY-MM-DD)</code> 원자적 갱신</div>
+            <div>• 오늘(<span id="summary-today-kst">--</span>) 조회: <strong id="summary-today-attempts" style="color:#34d399;">0회</strong> → 오늘 행 개수: <strong id="summary-today-rows" style="color:#38bdf8;">1건 유지</strong></div>
+            <div>• 보존된 실제 날짜 기록: <strong id="summary-real-records" style="color:#34d399;">0</strong>건 / 현재 표출 총 행: <strong id="summary-total-records">0</strong>건 (합성 <strong id="summary-fixture-records">0</strong>건)</div>
           </div>
           <div class="btn-row" style="margin-bottom: 10px;">
             <button class="btn btn-primary" id="btn-test-sameday" type="button">
-              🔄 같은 날 재조회 덮어쓰기 (T04-C20)
+              🔄 오늘(KST) 재조회 원자적 갱신 (T04-C20)
             </button>
             <button class="btn btn-amber" id="btn-clear-fixtures" type="button">
-              🧹 합성 Fixture 행 정리
+              🧹 합성 평가 Reset (실제 USGS만 표시)
             </button>
             <button class="btn" id="btn-export-records" type="button">
               📋 JSON 복사
@@ -138,12 +175,12 @@
             <table class="data-table">
               <thead>
                 <tr>
-                  <th>KST 날짜</th>
+                  <th>record_date</th>
                   <th>구분</th>
-                  <th>정규화 값</th>
-                  <th>단위</th>
-                  <th>관측(출처) 시각</th>
-                  <th>소스 URL</th>
+                  <th>normalized_value</th>
+                  <th>unit</th>
+                  <th>source_time</th>
+                  <th>source_url</th>
                   <th>갱신</th>
                 </tr>
               </thead>
@@ -152,31 +189,32 @@
           </div>
         </div>
 
+        <!-- 전일 대비 변화 및 재계산 검증 (T04-C24) -->
         <div class="panel-block">
           <div class="panel-block-title">
-            <span>📈 전일 대비 변화 및 재계산 검증</span>
+            <span>📈 어제 대비 변화값(Delta) 재계산 검증</span>
             <span class="req-tag">T04-C22~C24</span>
           </div>
           <div id="card5-status-pill" style="font-size: 0.75rem; color: #fbbf24; margin-bottom: 8px;"></div>
 
           <div class="delta-mini-grid">
             <div class="delta-mini-box">
-              <div class="delta-mini-label">이전 날짜 (D-1)</div>
+              <div class="delta-mini-label">이전 날짜 기록 (D-1)</div>
               <div class="delta-mini-val" id="delta-prev-val">--</div>
               <div style="font-size: 0.7rem; color: var(--text-secondary);" id="delta-prev-date">--</div>
             </div>
             <div class="delta-mini-box">
-              <div class="delta-mini-label">최신 날짜 (D)</div>
+              <div class="delta-mini-label">최신 날짜 기록 (D)</div>
               <div class="delta-mini-val" id="delta-curr-val">--</div>
               <div style="font-size: 0.7rem; color: var(--text-secondary);" id="delta-curr-date">--</div>
             </div>
             <div class="delta-mini-box">
-              <div class="delta-mini-label">전일 대비 변화 (D - D-1)</div>
+              <div class="delta-mini-label">어제 대비 변화값 (Delta)</div>
               <div class="delta-mini-val" id="delta-diff-val">--</div>
               <div style="font-size: 0.7rem; color: var(--text-secondary);" id="delta-diff-rate">--</div>
             </div>
             <div class="delta-mini-box">
-              <div class="delta-mini-label">재계산 검증 (T04-C24)</div>
+              <div class="delta-mini-label">재계산 일치 검증 (T04-C24)</div>
               <div class="delta-mini-val" id="delta-verify-status" style="font-size: 0.88rem; color: #34d399;">--</div>
               <div style="font-size: 0.68rem; color: var(--text-secondary);" id="delta-verify-formula">--</div>
             </div>
@@ -188,20 +226,20 @@
       <div class="drawer-pane" id="tab-inspector">
         <div class="panel-block">
           <div class="panel-block-title">
-            <span id="consistency-match-badge" style="color: #34d399;">✅ 원본 · 저장값 · 화면값 100% 일치</span>
+            <span id="consistency-match-badge" style="color: #34d399;">✅ 원자료 · 저장값 · 화면값 100% 일치</span>
             <span class="req-tag">T04-C10·C23</span>
           </div>
-          <div style="font-size: 0.74rem; color: var(--text-secondary); margin-bottom: 8px;">
-            🔒 비밀키 원문 0건(<code style="color:#93c5fd;">T04-C11</code>) · 🛡️ 개인정보 0건(<code style="color:#93c5fd;">T04-C25</code>) · 🔓 시크릿 창 열람(<code style="color:#93c5fd;">T04-C01</code>)
+          <div style="font-size: 0.73rem; color: var(--text-secondary); margin-bottom: 8px;">
+            <code>normalized-reading.schema.json</code> (9개 필수 키) & <code>reading-status.schema.json</code> (<code>freshness</code>, <code>error_code</code>) 준수
           </div>
 
-          <div style=" font-size: 0.75rem; font-weight: 700; margin: 8px 0 4px; color: var(--text-secondary);">① 원본 API 응답 (Raw USGS Response)</div>
+          <div style="font-size: 0.75rem; font-weight: 700; margin: 8px 0 4px; color: var(--text-secondary);">① 원자료 (Raw Upstream / Fixture Input)</div>
           <pre class="json-view" id="raw-response-json">조회 대기 중...</pre>
 
-          <div style="font-size: 0.75rem; font-weight: 700; margin: 10px 0 4px; color: var(--text-secondary);">② localStorage 저장값 (Stored JSON)</div>
+          <div style="font-size: 0.75rem; font-weight: 700; margin: 10px 0 4px; color: var(--text-secondary);">② 정규화 저장값 (Normalized Reading & Daily Storage)</div>
           <pre class="json-view" id="stored-value-json">조회 대기 중...</pre>
 
-          <div style="font-size: 0.75rem; font-weight: 700; margin: 10px 0 4px; color: var(--text-secondary);">③ 화면 표시값 스냅샷 (DOM Rendered)</div>
+          <div style="font-size: 0.75rem; font-weight: 700; margin: 10px 0 4px; color: var(--text-secondary);">③ 화면 표시값 스냅샷 (DOM Rendered Values)</div>
           <pre class="json-view" id="screen-value-json">조회 대기 중...</pre>
         </div>
       </div>
@@ -214,16 +252,16 @@
             <span class="req-tag">T04-C27</span>
           </div>
           <div class="guide-item">
-            <strong>① 어디로:</strong> 새 시크릿 창(무인증 상태)에서 본 대시보드 결과물 URL과 하단 출처의 USGS 원본 GeoJSON 소스 URL(<a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson" target="_blank" rel="noopener noreferrer">all_day.geojson</a>)에 각각 접속합니다.
+            <strong>① 어디로 가나요:</strong> 계정 생성·로그인·인증·초대·비밀번호·OAuth·CAPTCHA 없이 새 시크릿 창에서 본 결과물 URL과 하단 출처의 USGS 공개 원천 URL(<a href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson" target="_blank" rel="noopener noreferrer">all_day.geojson</a>)에 각각 접속합니다.
           </div>
           <div class="guide-item">
-            <strong>② 3단계 이내 절차:</strong> (1단계) 메인 화면의 최근 24시간 지진 건수·단위(<code>건</code>)·KST 시각 및 세계지도 신규 진앙지 점멸을 확인하고, (2단계) 왼쪽 탭(⚡)을 열어 5가지 실패 버튼 중 하나를 눌러 실패 상태와 마지막 정상값 유지(<code>stale</code>)를 확인한 뒤, (3단계) <code>복구 Fixture 재생</code>을 눌러 복구 및 일별 기록/전일 대비 변화를 확인합니다.
+            <strong>② 3단계 이내 무엇을 하나요:</strong> (1단계) 메인 화면에서 실시간 조회된 값·단위(<code>건</code>)·출처·출처 시각·조회 시각·기준 시간대(<code>Asia/Seoul</code>)와 세계지도 신규 진앙지 파동을 확인하고, (2단계) 왼쪽 <code>⚡</code> 탭을 열어 공식 9개 Fixture(<code>D1-A</code>, <code>D1-B</code>, <code>D2</code> 및 5대 실패 <code>timeout</code>·<code>auth</code>·<code>rate_limit</code>·<code>offline</code>·<code>schema_error</code>)를 재생한 뒤, (3단계) 다시 시도 행동(<code>T04-RECOVER-D2</code>)을 눌러 복구 및 일별 기록·어제 대비 변화를 확인합니다.
           </div>
           <div class="guide-item">
-            <strong>③ 통과 시 표시:</strong> 상단 상태 배지가 <code>fresh</code> 및 <code>none (정상)</code>으로 표시되고, 새 지진 진앙지에만 레이더 불빛이 반짝이며, 원본·저장값·화면값과 KST 일별 기록 및 전일 대비 변화 재계산 결과가 <code>100% 일치</code>로 표시됩니다.
+            <strong>③ 무엇이 보이면 통과인가요:</strong> 정상 및 복구(<code>T04-RECOVER-D2</code>) 시 <code>freshness: "fresh"</code>, <code>error_code: "none"</code>이 표시되고, 같은 날짜(<code>2026-08-24</code>) 재조회 시 행이 1건(값 <code>105</code>)으로 갱신되며 다음 날짜(<code>2026-08-25</code>) 성공 시 행이 2건(값 <code>120</code>, 어제 대비 변화 <code>15</code>)이 되고 원자료·저장값·화면값이 일치하면 통과입니다.
           </div>
           <div class="guide-item">
-            <strong>④ 실패 시 표시:</strong> 5가지 실패 유형별 고유 코드(<code>TIMEOUT</code>, <code>AUTH_401_403</code>, <code>RATE_LIMIT_429</code>, <code>OFFLINE</code>, <code>SCHEMA_MISMATCH</code>)가 상단 배지에 표시되고, 기존 정상 수치와 지도 좌표는 지워지지 않은 채 <code>STALE (오래된 값)</code> 상태와 재시도 버튼이 활성화됩니다.
+            <strong>④ 안 될 때 무엇이 보이나요:</strong> 다섯 실패 재생 시 기존 정상값(<code>105</code> 또는 최신 지진 건수)과 일별 행이 지워지지 않은 채 <code>freshness: "stale"</code> 배지가 붙고, 원인에 따라 <code>timeout</code>, <code>auth</code>, <code>rate_limit</code>, <code>offline</code>, <code>schema_error</code>가 별도 실패 상태로 표시되며 다시 시도 버튼이 나타납니다.
           </div>
         </div>
 
@@ -233,13 +271,13 @@
             <span class="req-tag">T04-C28</span>
           </div>
           <div class="guide-item purple">
-            <strong>① AI에게 맡긴 일:</strong> USGS GeoJSON API 호출, 위경도 좌표를 내장 SVG 세계지도 평면 좌표로 변환해 신규 진앙지에 레이더 파동을 그리는 로직, 그리고 <code>Asia/Seoul</code> 기준 날짜 키(<code>YYYY-MM-DD</code>) 계산 및 5종 합성 실패 Fixture 상태 전환 코드 작성을 맡겼습니다.
+            <strong>① AI에게 맡긴 일:</strong> USGS GeoJSON API 호출, Natural Earth 110m 세계지도 SVG 투영 및 마우스 휠 확대/축소 구현, 그리고 T04 공개 계약(<code>normalized-reading.schema.json</code>, <code>reading-status.schema.json</code>, 9개 결정론 Fixture 상태 전이) 코드 작성을 맡겼습니다.
           </div>
           <div class="guide-item purple">
-            <strong>② 직접 판단한 일:</strong> 비밀키가 불필요한 USGS 지진 데이터를 선정하고, 메인 화면에는 세계지도와 핵심 정보만 깔끔하게 남기고 상세 제어판은 왼쪽 슬라이드 탭으로 분리하는 UI 구조 및 '새로운 지진 데이터 유입 시에만 해당 진앙지가 반짝이도록' 하는 인터랙션 규칙을 직접 결정했습니다.
+            <strong>② 학생이 직접 판단한 일:</strong> 비밀키가 불필요한 USGS 실시간 지진 데이터를 선정하고, 메인 화면에는 세계지도와 필수 정보만 깔끔하게 배치한 뒤 상세 제어판은 왼쪽 슬라이드 탭으로 숨기는 UI 구성, 점 크기를 20%로 줄이고 신규 지진 파동은 규모에 비례해 과장되게 표현하며 클릭한 지진 정보는 점 옆에 띄우는 시각적 규칙을 직접 결정했습니다.
           </div>
           <div class="guide-item purple">
-            <strong>③ 따르지 않은 AI 제안:</strong> 과거 지진 점을 클릭할 때마다 반짝임 비콘이 이동하던 초기 제안과 외부 지도 타일(Leaflet CDN) 및 가짜 2일 차 초기 데이터를 넣자는 대안은 '신규 데이터 감지 알림의 명확성', '오프라인 재현(<code>T04-C15</code>) 시 지도 유지', '실제 날짜 조회 원칙(<code>T04-C22</code>)'을 위해 따르지 않았습니다.
+            <strong>③ AI 제안을 따르지 않은 일:</strong> 과거 지진 점을 클릭할 때마다 신규 감지 반짝임 비콘이 이동하던 초기 제안, 클릭 시 점 크기가 1.45배 커지던 효과, 그리고 임의의 대문자 오류 코드(<code>AUTH_401_403</code> 등)를 쓰던 방식은 '신규 지진 알림과의 혼동 방지', '정밀한 지도 점 표현', 'T04 공식 스키마(<code>timeout</code>, <code>auth</code>, <code>rate_limit</code>, <code>offline</code>, <code>schema_error</code>) 엄수'를 위해 따르지 않고 직접 수정을 지시했습니다.
           </div>
         </div>
       </div>
@@ -250,30 +288,37 @@
        메인 전체화면 스테이지 (깔끔한 세계지도 + 상/하단 최소 필수 정보 HUD)
        ======================================================================== -->
   <main class="app-stage" id="app-stage">
-    <!-- 상단 미니멀 HUD 바: 대표 값(T04-C04), 단위(T04-C05), 상태(fresh/stale, 오류코드), 실시간 조회 버튼 -->
+    <!-- 상단 미니멀 HUD 바: 대표 값(T04-C04), 단위(T04-C05), 상태(fresh/stale, error_code), 자동 갱신 & 실시간 조회 버튼 -->
     <header class="hud-top-bar" id="system-status-bar">
       <div class="hud-brand">
         <div class="hud-title">
           🌐 USGS 글로벌 지진 실시간 관제
         </div>
-        <div class="hud-primary-stat" id="metric-hero-box" title="T04-C03~C05: 최근 24시간 전 세계 지진 발생 건수 및 단위">
-          <span class="hud-stat-label">24h 지진</span>
+        <div class="hud-primary-stat" id="metric-hero-box" title="T04-C03~C05: 추적 값(normalized_value) 및 단위(unit)">
+          <span class="hud-stat-label" id="hud-signal-label">24h 지진</span>
           <span class="hud-stat-value" id="display-value" data-testid="tracked-value">--</span>
           <span class="hud-stat-unit" id="display-unit" data-testid="tracked-unit">건</span>
+        </div>
+        <div class="hud-primary-stat" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3);" title="T04-C24: 어제 대비 변화값 (delta)">
+          <span class="hud-stat-label">전일 대비</span>
+          <span class="hud-stat-value" id="hud-delta-value" style="font-size: 1.05rem; color: #34d399;">--</span>
         </div>
       </div>
 
       <div class="hud-status-cluster">
-        <span class="freshness-badge fresh" id="badge-freshness" title="T04-C18: 데이터 신선도 (fresh / stale)">fresh</span>
-        <span class="error-code-badge" id="badge-error-state" title="T04-C12~C16: 실패 상태 코드">none (정상)</span>
-        <span id="inline-freshness-label" style="font-size: 0.76rem; color: #34d399; font-weight: 600;">최신 정상값</span>
+        <span class="freshness-badge fresh" id="badge-freshness" data-testid="freshness-badge" title="T04-C18: 신선도 (fresh / stale)">fresh</span>
+        <span class="error-code-badge" id="badge-error-state" data-testid="error-code-badge" title="T04-C12~C16: 오류 코드 (none / timeout / auth / rate_limit / offline / schema_error)">none</span>
+        <span id="inline-freshness-label" style="font-size: 0.74rem; color: #34d399; font-weight: 600;">최신 정상값</span>
+        <span id="auto-refresh-badge" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); padding: 3px 7px; border-radius: 5px; background: rgba(15,23,42,0.7); border: 1px solid var(--border-normal);">
+          자동갱신: 60s
+        </span>
         <span id="status-message-text" style="display: none;"></span>
 
         <button class="btn btn-primary" id="btn-fetch-live" type="button" style="padding: 5px 11px; font-size: 0.76rem;">
           🔄 실시간 조회
         </button>
-        <button class="btn btn-emerald" id="btn-replay-recovery" type="button" style="padding: 5px 11px; font-size: 0.76rem; display: none;">
-          ✨ 복구 재생
+        <button class="btn btn-emerald" id="btn-replay-recovery" type="button" style="padding: 5px 11px; font-size: 0.76rem; display: none;" title="T04-C19: 실패 상태에서 다시 시도 행동 및 T04-RECOVER-D2 재생">
+          ✨ 다시 시도 (T04-RECOVER-D2)
         </button>
       </div>
     </header>
@@ -298,7 +343,7 @@
         </g>
       </svg>
 
-      <!-- 클릭한 지진 상세 정보 플로팅 미니 카드 -->
+      <!-- 클릭한 지진 상세 정보 플로팅 미니 카드 (점 근처에 위치) -->
       <div class="selected-quake-card" id="selected-quake-card" style="display: none;" aria-live="polite">
         <div class="sq-header">
           <span class="sq-badge" id="sq-mag-badge">M 0.0</span>
@@ -325,24 +370,25 @@
     <!-- 하단 미니멀 HUD 바: 출처(T04-C06), 출처 시각(T04-C07), 조회 시각(T04-C08), 기준 시간대(T04-C09), 최신 진앙지 알림 -->
     <footer class="hud-bottom-bar">
       <div class="hud-meta-items">
-        <span class="hud-meta-item" title="T04-C06: 데이터 출처 및 원본 URL">
-          출처: <strong id="display-source-name">USGS</strong>
+        <span class="hud-meta-item" title="T04-C06: 출처 이름(source_name) 및 원천 URL(source_url)">
+          출처: <strong id="display-source-name">USGS Earthquake Hazards Program</strong>
           (<a id="display-source-url" href="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson" target="_blank" rel="noopener noreferrer">https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/all_day.geojson</a>)
         </span>
-        <span class="hud-meta-item" title="T04-C07: 출처 시각">
+        <span class="hud-meta-item" title="T04-C07: 출처 시각(source_time)">
           출처 시각: <strong id="display-source-time">--</strong>
         </span>
-        <span class="hud-meta-item" title="T04-C08: 조회 시각">
+        <span class="hud-meta-item" title="T04-C08: 조회 시각(fetched_at)">
           조회 시각: <strong id="display-fetched-time">--</strong>
         </span>
-        <span class="hud-meta-item" title="T04-C09: 기준 시간대">
-          시간대: <strong id="display-timezone">Asia/Seoul (UTC+09:00, KST)</strong>
+        <span class="hud-meta-item" title="T04-C09: 기준 시간대(record_timezone)">
+          기준 시간대: <strong id="display-timezone">Asia/Seoul</strong>
+          (<span id="display-record-date" style="font-family: var(--font-mono); color: #38bdf8;">--</span>)
         </span>
       </div>
 
       <div class="hud-quake-ticker">
         <span class="ticker-dot"></span>
-        <span>신규 감지 진앙지: <strong id="display-latest-quake" style="color: #38bdf8;">수신 대기 중...</strong></span>
+        <span>최신 감지 진앙지: <strong id="display-latest-quake" style="color: #38bdf8;">수신 대기 중...</strong></span>
       </div>
     </footer>
   </main>
