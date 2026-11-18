@@ -288,38 +288,29 @@
        메인 전체화면 스테이지 (깔끔한 세계지도 + 상/하단 최소 필수 정보 HUD)
        ======================================================================== -->
   <main class="app-stage" id="app-stage">
-    <!-- 상단 미니멀 HUD 바: 대표 값(T04-C04), 단위(T04-C05), 상태(fresh/stale, error_code), 자동 갱신 & 실시간 조회 버튼 -->
+    <!-- 상단 미니멀 HUD 바: 평소에는 제목 + 24h 지진 건수만 깔끔하게 표시, 고장(stale) 시에만 상태 배지 및 다시 시도 버튼 노출 -->
     <header class="hud-top-bar" id="system-status-bar">
       <div class="hud-brand">
         <div class="hud-title">
           🌐 USGS 글로벌 지진 실시간 관제
         </div>
+      </div>
+
+      <div class="hud-status-cluster">
+        <!-- 고장(stale) 발생 시에만 나타나는 경고 배지 및 다시 시도 클러스터 -->
+        <div id="hud-fault-cluster" style="display: none; align-items: center; gap: 8px;">
+          <span class="freshness-badge fresh" id="badge-freshness" data-testid="freshness-badge" title="T04-C18: 신선도 (fresh / stale)">fresh</span>
+          <span class="error-code-badge" id="badge-error-state" data-testid="error-code-badge" title="T04-C12~C16: 오류 코드">none</span>
+          <button class="btn btn-emerald" id="btn-replay-recovery" type="button" style="padding: 5px 11px; font-size: 0.76rem;" title="T04-C19: 실패 상태에서 다시 시도 행동 및 T04-RECOVER-D2 재생">
+            ✨ 다시 시도 (T04-RECOVER-D2)
+          </button>
+        </div>
+
         <div class="hud-primary-stat" id="metric-hero-box" title="T04-C03~C05: 추적 값(normalized_value) 및 단위(unit)">
           <span class="hud-stat-label" id="hud-signal-label">24h 지진</span>
           <span class="hud-stat-value" id="display-value" data-testid="tracked-value">--</span>
           <span class="hud-stat-unit" id="display-unit" data-testid="tracked-unit">건</span>
         </div>
-        <div class="hud-primary-stat" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3);" title="T04-C24: 어제 대비 변화값 (delta)">
-          <span class="hud-stat-label">전일 대비</span>
-          <span class="hud-stat-value" id="hud-delta-value" style="font-size: 1.05rem; color: #34d399;">--</span>
-        </div>
-      </div>
-
-      <div class="hud-status-cluster">
-        <span class="freshness-badge fresh" id="badge-freshness" data-testid="freshness-badge" title="T04-C18: 신선도 (fresh / stale)">fresh</span>
-        <span class="error-code-badge" id="badge-error-state" data-testid="error-code-badge" title="T04-C12~C16: 오류 코드 (none / timeout / auth / rate_limit / offline / schema_error)">none</span>
-        <span id="inline-freshness-label" style="font-size: 0.74rem; color: #34d399; font-weight: 600;">최신 정상값</span>
-        <span id="auto-refresh-badge" style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--text-secondary); padding: 3px 7px; border-radius: 5px; background: rgba(15,23,42,0.7); border: 1px solid var(--border-normal);">
-          자동갱신: 60s
-        </span>
-        <span id="status-message-text" style="display: none;"></span>
-
-        <button class="btn btn-primary" id="btn-fetch-live" type="button" style="padding: 5px 11px; font-size: 0.76rem;">
-          🔄 실시간 조회
-        </button>
-        <button class="btn btn-emerald" id="btn-replay-recovery" type="button" style="padding: 5px 11px; font-size: 0.76rem; display: none;" title="T04-C19: 실패 상태에서 다시 시도 행동 및 T04-RECOVER-D2 재생">
-          ✨ 다시 시도 (T04-RECOVER-D2)
-        </button>
       </div>
     </header>
 

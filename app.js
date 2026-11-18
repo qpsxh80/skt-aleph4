@@ -1155,13 +1155,10 @@
     const reading = activeState.current_reading;
 
     const appStage = document.getElementById("app-stage");
+    const faultCluster = document.getElementById("hud-fault-cluster");
     const badgeFreshness = document.getElementById("badge-freshness");
     const badgeError = document.getElementById("badge-error-state");
-    const inlineFreshness = document.getElementById("inline-freshness-label");
-    const btnTopFetch = document.getElementById("btn-fetch-live");
-    const btnTopRecovery = document.getElementById("btn-replay-recovery");
     const signalLabel = document.getElementById("hud-signal-label");
-    const hudDeltaEl = document.getElementById("hud-delta-value");
 
     appStage.classList.toggle("is-stale", isStale);
     badgeFreshness.textContent = status.freshness;
@@ -1170,16 +1167,9 @@
     badgeError.textContent = status.error_code;
     badgeError.className = `error-code-badge ${status.error_code !== "none" ? "has-error" : ""}`;
 
-    if (status.error_code === "none") {
-      inlineFreshness.textContent = runtime.mode === "fixture" ? "Fixture 재생 (fresh)" : "최신 정상값 (fresh)";
-      inlineFreshness.style.color = "#34d399";
-      if (btnTopFetch) btnTopFetch.textContent = "🔄 실시간 조회";
-      if (btnTopRecovery) btnTopRecovery.style.display = "none";
-    } else {
-      inlineFreshness.textContent = `오래된 값 유지 (stale / ${status.error_code})`;
-      inlineFreshness.style.color = "#fbbf24";
-      if (btnTopFetch) btnTopFetch.textContent = "🔁 다시 시도 (Live)";
-      if (btnTopRecovery) btnTopRecovery.style.display = "inline-flex";
+    // 평소(정상 fresh/none)에는 상단 바에서 숨기고, 고장(stale) 발생 시에만 경고 클러스터 노출
+    if (faultCluster) {
+      faultCluster.style.display = status.error_code === "none" ? "none" : "inline-flex";
     }
 
     if (reading) {
@@ -1195,14 +1185,6 @@
       document.getElementById("display-fetched-time").textContent = reading.fetched_at;
       document.getElementById("display-timezone").textContent = reading.record_timezone;
       document.getElementById("display-record-date").textContent = reading.record_date;
-    }
-
-    if (activeState.last_comparison && activeState.last_comparison.state === "comparable") {
-      const comp = activeState.last_comparison;
-      const sign = comp.direction === "increase" ? "+" : comp.direction === "decrease" ? "-" : "";
-      hudDeltaEl.textContent = `${sign}${comp.magnitude} ${comp.unit}`;
-    } else {
-      hudDeltaEl.textContent = "비교 대기(1일차)";
     }
 
     if (runtime.quakes && runtime.quakes.length > 0) {
@@ -1446,7 +1428,6 @@
   }
 
   function startAutoRefreshLoop() {
-    const badge = document.getElementById("auto-refresh-badge");
     setInterval(() => {
       const activeState = getActiveAdapterState();
       const isFreshLive =
@@ -1454,22 +1435,12 @@
         activeState.status &&
         activeState.status.freshness === "fresh";
 
-      if (!isFreshLive) {
-        if (badge) {
-          badge.textContent = "자동갱신: 일시정지";
-          badge.style.color = "#fbbf24";
-        }
-        return;
-      }
+      if (!isFreshLive) return;
 
       runtime.autoRefreshRemainingSec -= 1;
       if (runtime.autoRefreshRemainingSec <= 0) {
         runtime.autoRefreshRemainingSec = AUTO_REFRESH_INTERVAL_SEC;
         fetchLiveUSGSData({ isAuto: true });
-      }
-      if (badge) {
-        badge.textContent = `자동갱신: ${runtime.autoRefreshRemainingSec}s`;
-        badge.style.color = "#94a3b8";
       }
     }, 1000);
   }
@@ -1578,9 +1549,12 @@
     });
 
     // 실시간 조회 및 Reset 버튼
-    document.getElementById("btn-fetch-live").addEventListener("click", () => {
-      fetchLiveUSGSData({ isAuto: false });
-    });
+    const btnTopFetch = document.getElementById("btn-fetch-live");
+    if (btnTopFetch) {
+      btnTopFetch.addEventListener("click", () => {
+        fetchLiveUSGSData({ isAuto: false });
+      });
+    }
     document.getElementById("btn-retry-live").addEventListener("click", () => {
       fetchLiveUSGSData({ isAuto: false });
     });
